@@ -1,0 +1,37 @@
+services:
+  api:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://x32:x32@postgres:5432/x32?schema=public
+    ports:
+      - '${PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    # Console discovery broadcasts to 255.255.255.255, which does not leave a
+    # bridge network. On a Linux host, run the API on the host network instead:
+    #   network_mode: host
+    # On Docker Desktop (macOS/Windows) there is no host networking for UDP —
+    # set X32_HOST explicitly rather than relying on discovery.
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: x32
+      POSTGRES_PASSWORD: x32
+      POSTGRES_DB: x32
+    ports:
+      - '5432:5432'
+    volumes:
+      - x32-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U x32 -d x32']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  x32-postgres:

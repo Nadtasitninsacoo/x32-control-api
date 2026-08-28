@@ -1,114 +1,206 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# x32-control-api
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST + WebSocket control API for **Behringer X32 / Midas M32** consoles, speaking OSC over UDP.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Self-contained: its own `package.json`, `.env`, Dockerfile and git repository. It has no
+workspace, no shared folder and no dependency on any file outside this directory. A frontend
+talks to it over HTTP/WS only, and learns its types from the exported `openapi.json`.
 
-## Description
+> **Status — Phase 1 of 7 complete.** The OSC core (codec, transport, pacing, request
+> correlation, `/xremote` heartbeat), the X32 emulator and their tests are done and green.
+> Phases 2–7 (console management, mixer REST, metering, scenes, venue presets, room EQ,
+> auth/safety) are not built yet. See [Roadmap](#roadmap).
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## Quick start
 
 ```bash
-$ npm install
+npm install
+cp .env.example .env        # then set X32_HOST, or leave it empty and use discovery
+npm run start:dev
 ```
 
-## Compile and run the project
+No console on the desk? Run the emulator in one terminal and point the API at it:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run emulator            # UDP 127.0.0.1:10023
+# .env:  X32_HOST=127.0.0.1
 ```
 
-## Run tests
+### Tests
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm test          # unit + emulator integration — needs no console, no database
+npm run typecheck
+npm run lint
 ```
 
-## Deployment
+Every test runs against the built-in emulator, so the whole suite is CI-safe.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Docker
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+docker compose up --build
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Brings up the API and its own PostgreSQL 17. Note that console **discovery broadcasts to
+255.255.255.255, which does not cross a Docker bridge network** — on a Linux host add
+`network_mode: host` to the `api` service; on Docker Desktop set `X32_HOST` explicitly.
 
-## Observability
+---
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+## Design rule: the API speaks human units
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+The console works in raw `0.0–1.0` floats. **Nothing above the OSC layer is allowed to see
+them.** REST, WebSocket, the database and the frontend deal exclusively in dB, Hz, ratio,
+milliseconds and percent; every conversion happens in
+[`src/osc/units/x32-units.ts`](src/osc/units/x32-units.ts) and nowhere else.
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+| Parameter | API unit | Raw taper |
+| --- | --- | --- |
+| Fader / send level | dB, −90 … +10 (−90 = −∞) | 4-segment piecewise linear |
+| Head amp gain | dB, −12 … +60 | linear |
+| Pan | −100 … +100 | linear |
+| EQ band gain | dB, −15 … +15 | linear |
+| EQ band frequency | Hz, 20 … 20 000 | logarithmic |
+| EQ band Q | 10 … 0.3 | logarithmic, **inverted** |
+| Low-cut frequency | Hz, 20 … 400 | logarithmic |
+| Compressor threshold | dB, −60 … 0 | linear |
+| Gate threshold / range | dB, −80 … 0 / 3 … 60 | linear |
+| Attack | ms, 0 … 120 | linear |
+| Hold | ms, 0.02 … 2000 | logarithmic |
+| Release | ms, 5 … 4000 | logarithmic |
+| Compressor ratio | 1.1 … 100 | int32 index into a fixed list |
+| Meters | dBFS, −90 … 0 | `20·log10(sample)` |
 
-## Resources
+Two polarity traps are encoded once, with names that cannot be misread:
+`/mix/on` is **1 when the channel is un-muted** (`mutedToOnInt`), and EQ `q` runs *downwards*
+(0.0 = Q 10, 1.0 = Q 0.3).
 
-Check out a few resources that may come in handy when working with NestJS:
+---
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Architecture (Phase 1)
 
-## Support
+```
+src/osc/
+  codec/       OSC 1.0 encoder/decoder — int32, float32, string, blob, bundles
+  units/       raw float  <->  dB / Hz / ratio / ms   (the only place that knows raw values)
+  addresses/   how many strips exist and how their roots are spelled
+  rate-limit/  priority send queue: ≤50 msg/s, ≥2 ms apart, never drops
+  transport/   one UDP socket per console, DRY_RUN aware
+  broker/      request → reply correlation (the X32 has no message ids)
+  heartbeat/   /xremote renewal every 8 s
+  client/      OscClient = transport + pacing + broker, one per consoleId
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Four facts about the X32 shape all of this:
 
-## Stay in touch
+1. **It has no message ids.** A reply arrives on the *same address* as the query, so requests
+   are keyed by address and served FIFO — except `/node`, which is answered on the bare
+   address `node` with no leading slash. The decoder is permissive about that; the transport
+   still refuses to *send* a malformed address.
+2. **It drops packets when flooded**, silently. Every datagram goes through the rate limiter:
+   ≤50 msg/s with a ≥2 ms gap, three priorities (operator commands > housekeeping > polling),
+   and no discarding — a 500-command burst is spread out, not thinned.
+3. **`/xremote` expires after 10 seconds.** Miss a renewal and the parameter feed stops with
+   no error at all. Renewal runs at 8 s, leaving a full period of margin.
+4. **Meter blobs are little-endian inside**, while the OSC framing around them is big-endian.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+---
 
-## License
+## Supported OSC addresses
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Phase 1 implements the transport for all of these; the REST surface arrives in Phase 3.
+
+| Address | Direction | Notes |
+| --- | --- | --- |
+| `/info` | request → reply | server version, name, model, firmware |
+| `/xinfo` | request → reply | IP, name, model, firmware |
+| `/status` | request → reply | state, IP, name |
+| `/xremote` | send, every 8 s | subscribes to the parameter feed for 10 s |
+| `/unsubscribe` | send | drops all subscriptions for this socket |
+| `/renew` | send | extends a meter subscription |
+| `/node ,s <path>` | request → **`node`** | subtree dump in *display* units |
+| `/subscribe ,s <path>` | send | starts a meter stream |
+| `/batchsubscribe ,s <alias> ,s <path> …` | send | meter stream under an alias |
+| `/meters/0 \| /1 \| /2 \| /13` | request → blob | 70 / 96 / 49 / 24 float32 LE samples |
+| `/ch/01…32/…` | get / set | `config/{name,icon,color}`, `mix/{on,fader,st,pan,mono,mlevel}`, `mix/01…16/{on,level,pan}`, `preamp/{trim,invert,hpon,hpf}`, `gate/*`, `dyn/*`, `eq/1…4/{type,f,g,q}` |
+| `/auxin/01…08/…`, `/fxrtn/01…08/…` | get / set | as channels |
+| `/bus/01…16/…`, `/mtx/01…06/…` | get / set | strip + processing |
+| `/main/st`, `/main/m` | get / set | strip + processing |
+| `/dca/1…8/{on,fader,config/*}` | get / set | |
+| `/headamp/000…031/{gain,phantom}` | get / set | head amps are global, not per-strip |
+
+---
+
+## The X32 emulator
+
+[`test/emulator/x32-emulator.ts`](test/emulator/x32-emulator.ts) is a UDP stand-in used by the
+test suite and runnable on its own (`npm run emulator [address] [port]`).
+
+It reproduces the behaviours that break naive clients: same-address replies, the bare `node`
+reply address, 10-second subscription expiry, little-endian meter blobs, display-unit `/node`
+dumps, and silence for addresses it does not know. It can also inject packet loss (`dropRate`)
+and latency (`latencyMs`) so reconnect and pacing paths can be exercised without touching a
+cable.
+
+Useful handles for tests: `emulator.get(address)`, `emulator.setFromConsole(address, args)`
+(simulates someone moving a physical fader), `emulator.receivedOn(address)`,
+`emulator.dropSubscriptions()` (simulates a console reboot), `emulator.xremoteSubscriberCount`.
+
+Not modelled: routing matrix, effects rack, USB recorder, show/cue file contents.
+
+---
+
+## Environment variables
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `NODE_ENV` | `development` | `development` \| `test` \| `production` |
+| `PORT` | `3000` | HTTP port |
+| `X32_HOST` | *(empty)* | Console IP. Empty = rely on discovery |
+| `X32_PORT` | `10023` | Console OSC port (X32 firmware uses 10023) |
+| `OSC_LOCAL_PORT` | `0` | Local UDP port to bind; 0 = OS-assigned |
+| `OSC_BROADCAST_ADDRESS` | `255.255.255.255` | Target of the discovery sweep |
+| `OSC_MAX_MSG_PER_SEC` | `50` | Sustained send ceiling — raising it invites packet loss |
+| `OSC_MIN_GAP_MS` | `2` | Minimum gap between two datagrams |
+| `OSC_MAX_QUEUE_LENGTH` | `5000` | Send-queue depth before backpressure; 0 = unbounded |
+| `OSC_REQUEST_TIMEOUT_MS` | `1000` | Reply timeout for a query |
+| `XREMOTE_INTERVAL_MS` | `8000` | `/xremote` renewal period (console expiry is 10 000) |
+| `DRY_RUN` | `false` | Log state-changing OSC instead of sending it; queries still work |
+
+`DATABASE_URL` and `JWT_SECRET` arrive with Phases 5 and 7.
+
+Configuration is validated at boot by `class-validator`
+([`src/config/env.validation.ts`](src/config/env.validation.ts)) — a bad value fails fast with a
+readable message instead of misbehaving on stage.
+
+---
+
+## Roadmap
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| 1 | OscModule + emulator + tests | **done** |
+| 2 | ConsoleModule, discovery, reconnect, StateCache | next |
+| 3 | MixerModule, REST, Swagger, `npm run openapi:export` | pending |
+| 4 | Metering + WebSocket at 20 fps | pending |
+| 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | pending |
+| 6 | RoomEq (REW/CSV import, auto PEQ) | pending |
+| 7 | Auth (JWT, admin/engineer/observer) + Safety (panic, read-only, audit log) | pending |
+
+Acceptance criteria 3 (set −6 dB, read back −6 dB ±0.1) and 5 (500-command burst, nothing
+dropped) are covered by
+[`test/integration/osc-console-link.spec.ts`](test/integration/osc-console-link.spec.ts).
+Criterion 4 (reconnect within 10 s of a cable being replugged) belongs to Phase 2; criteria 1
+and 2 complete when Swagger lands in Phase 3.
+
+## Deviations from the original spec
+
+- **NestJS 12 + Vitest**, not NestJS 11 + Jest: the repository was already scaffolded that way,
+  decorator metadata verifiably works under Vitest, and downgrading a fresh scaffold buys
+  nothing. Say the word and it can be moved to Nest 11 + Jest.
+- Meter bank sizes (`/meters/0` 70, `/meters/1` 96, `/meters/2` 49, `/meters/13` 24) follow the
+  unofficial protocol notes and should be confirmed against the appendix or real hardware
+  before Phase 4 maps blob indices to strips.

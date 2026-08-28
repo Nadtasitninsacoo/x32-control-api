@@ -14,3 +14,4 @@ Thumbs.db
 !.vscode/launch.json
 .temp
 .tmp
+*.tsbuildinfo

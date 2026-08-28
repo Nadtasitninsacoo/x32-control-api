@@ -6,11 +6,11 @@ Self-contained: its own `package.json`, `.env`, Dockerfile and git repository. I
 workspace, no shared folder and no dependency on any file outside this directory. A frontend
 talks to it over HTTP/WS only, and learns its types from the exported `openapi.json`.
 
-> **Status — Phases 1–5 of 7 complete.** The OSC core, console management, the mixer REST
+> **Status — Phases 1–6 of 7 complete.** The OSC core, console management, the mixer REST
 > surface (Swagger + exported `openapi.json`), metering over WebSocket, console scenes with
-> `.scn` import/export, and venue presets with fader ramping and version history are done
-> and green, with the X32 emulator behind their tests. Phases 6–7 (room EQ, auth/safety)
-> are not built yet. See [Roadmap](#roadmap).
+> `.scn` import/export, venue presets with fader ramping and version history, and room EQ
+> from a measurement file are done and green, with the X32 emulator behind their tests.
+> Phase 7 (auth and safety) is not built yet. See [Roadmap](#roadmap).
 
 ---
 
@@ -240,6 +240,8 @@ Base path `/api`. Interactive docs at `/api/docs`, machine-readable at
 | `POST` | `/api/presets/{id}/apply` | Apply it, ramping levels |
 | `GET/POST` | `/api/presets/{id}/versions` | History, and saving a new version |
 | `POST` | `/api/presets/{id}/rollback` | Make an earlier version current again |
+| `POST` | `/api/roomeq/analyze` | Fit a correction to a measurement — touches no console |
+| `POST` | `/api/consoles/{id}/roomeq/apply` | Write a correction to a strip's EQ |
 
 `kind` is `ch`, `auxin`, `fxrtn`, `bus`, `mtx`, `main` or `dca`. Indices may be padded or not
 (`ch/1` == `ch/01`), and the mains answer to `main/st` (or `main/lr`) and `main/m`.
@@ -365,6 +367,46 @@ production ever exercises.
 
 ---
 
+## Room EQ
+
+Feed it a measurement — a REW text export or a CSV of frequency and level — and it fits a
+correction for a strip's parametric EQ.
+
+```bash
+curl -X POST localhost:3000/api/roomeq/analyze -H 'content-type: application/json'   -d "{\"measurement\": $(jq -Rs . < room.txt)}"
+```
+
+`analyze` touches no console. It returns the bands, before/after/target curves ready to plot,
+the deviation from target before and after, and warnings worth reading. `apply` does the same
+fit and writes it to a bus:
+
+```bash
+curl -X POST localhost:3000/api/consoles/default/roomeq/apply   -d '{"strip":"bus/01","measurement":"..."}'
+```
+
+The rules the fitter follows are the ones that separate useful room EQ from the kind that
+makes a rig sound worse:
+
+- **Smooth first, at 1/6 octave.** A raw sweep is full of narrow nulls caused by cancellation
+  *at the microphone position*. They move when you move; filling them spends headroom on
+  something nobody but the mic experiences.
+- **Cut freely, boost sparingly.** A cut costs nothing. A boost spends headroom and amplifier
+  power on the resonance that is already the loudest thing in the room, so boosts stop at
+  +6 dB by default and the response says when a band hit that ceiling.
+- **Only 40 Hz – 8 kHz.** Below that the fix is the room and the subwoofer positions; above it,
+  air and directivity. Bands spent outside that range are bands wasted.
+- **Spend bands where they buy the most.** Fitting is greedy — the worst remaining deviation
+  gets the next band — and it stops early when what is left is inaudible rather than using up
+  every band for the sake of it. A flat room gets no filters at all.
+- **Never leave half a correction behind.** Applying flattens the bands the new correction does
+  not use, so last week's EQ cannot sit underneath this week's.
+
+Only the console's own parametric EQ is written. The 31-band graphic EQ lives in an effects
+slot whose addressing this project does not model, and guessing at it would mean writing to
+whatever effect happens to be loaded in that slot.
+
+---
+
 ## Environment variables
 
 | Variable | Default | Meaning |
@@ -413,8 +455,8 @@ readable message instead of misbehaving on stage.
 | 3 | MixerModule, REST, Swagger, `npm run openapi:export` | **done** |
 | 4 | Metering + WebSocket at 20 fps | **done** |
 | 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | **done** |
-| 6 | RoomEq (REW/CSV import, auto PEQ) | next |
-| 7 | Auth (JWT, admin/engineer/observer) + Safety (panic, read-only, audit log) | pending |
+| 6 | RoomEq (REW/CSV import, auto PEQ) | **done** |
+| 7 | Auth (JWT, admin/engineer/observer) + Safety (panic, read-only, audit log) | next |
 
 Acceptance criteria 3 (set −6 dB, read back −6 dB ±0.1) and 5 (500-command burst, nothing
 dropped) are covered by

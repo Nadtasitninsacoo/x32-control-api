@@ -10,6 +10,7 @@ import { MixerModule } from './mixer/mixer.module.js';
 import { OscModule } from './osc/osc.module.js';
 import { PresetModule } from './preset/preset.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
+import { RoomEqModule } from './roomeq/roomeq.module.js';
 import { SceneModule } from './scene/scene.module.js';
 
 @Module({
@@ -28,6 +29,7 @@ import { SceneModule } from './scene/scene.module.js';
     MeteringModule,
     SceneModule,
     PresetModule,
+    RoomEqModule,
     RealtimeModule,
     HealthModule,
   ],

@@ -185,6 +185,16 @@ export class EnvVars {
   @Max(99)
   METER_TIME_FACTOR = 1;
 
+  /* --- Storage --- */
+
+  /**
+   * PostgreSQL connection string for venue presets. Leave it empty and the
+   * presets live in memory instead: everything works, nothing survives a
+   * restart, and the log says so at boot.
+   */
+  @IsString()
+  DATABASE_URL = '';
+
   /* --- Applying presets and scenes --- */
 
   /**

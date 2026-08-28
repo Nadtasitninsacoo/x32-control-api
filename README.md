@@ -6,10 +6,11 @@ Self-contained: its own `package.json`, `.env`, Dockerfile and git repository. I
 workspace, no shared folder and no dependency on any file outside this directory. A frontend
 talks to it over HTTP/WS only, and learns its types from the exported `openapi.json`.
 
-> **Status — Phases 1–4 of 7 complete.** The OSC core, console management, the mixer REST
-> surface (Swagger + exported `openapi.json`) and metering over WebSocket are done and
-> green, with the X32 emulator behind their tests. Phases 5–7 (scenes, venue presets, room
-> EQ, auth/safety) are not built yet. See [Roadmap](#roadmap).
+> **Status — Phases 1–5 of 7 complete.** The OSC core, console management, the mixer REST
+> surface (Swagger + exported `openapi.json`), metering over WebSocket, console scenes with
+> `.scn` import/export, and venue presets with fader ramping and version history are done
+> and green, with the X32 emulator behind their tests. Phases 6–7 (room EQ, auth/safety)
+> are not built yet. See [Roadmap](#roadmap).
 
 ---
 
@@ -227,6 +228,18 @@ Base path `/api`. Interactive docs at `/api/docs`, machine-readable at
 | `PATCH` | `/api/consoles/{id}/strips/{kind}/{index}` | Change part of a strip |
 | `GET` | `/api/consoles/{id}/meters` | Latest meter frame (a snapshot; use the socket to draw) |
 | `GET` | `/api/consoles/{id}/meters/raw` | One meter bank, unmapped — the calibration tool |
+| `GET` | `/api/consoles/{id}/show/{scene\|cue\|snippet}` | Occupied slots in the console show file |
+| `POST` | `/api/consoles/{id}/show/{kind}/recall` | Recall a scene, cue or snippet |
+| `POST` | `/api/consoles/{id}/show/scene/save` | Write the current state into a console slot |
+| `GET` | `/api/consoles/{id}/show/export.scn` | Export the mixing state as a `.scn` file |
+| `POST` | `/api/consoles/{id}/show/import` | Read a `.scn` file, and optionally load it |
+| `GET/POST` | `/api/venues`, `/api/bands` | Rooms and acts, with notes and input lists |
+| `POST` | `/api/bands/{id}/apply-input-list` | Write names, colours and gains onto a console |
+| `GET/POST` | `/api/presets` | List and save venue presets |
+| `POST` | `/api/presets/{id}/preview` | What applying it would change — sends nothing |
+| `POST` | `/api/presets/{id}/apply` | Apply it, ramping levels |
+| `GET/POST` | `/api/presets/{id}/versions` | History, and saving a new version |
+| `POST` | `/api/presets/{id}/rollback` | Make an earlier version current again |
 
 `kind` is `ch`, `auxin`, `fxrtn`, `bus`, `mtx`, `main` or `dca`. Indices may be padded or not
 (`ch/1` == `ch/01`), and the mains answer to `main/st` (or `main/lr`) and `main/m`.
@@ -294,6 +307,64 @@ index moves, then extend `CHANNEL_SEGMENT` in
 
 ---
 
+## Venue presets
+
+A scene on the console belongs to the console: one show file, overwritten by whoever touched
+it last, gone when the desk is swapped. A **venue preset** belongs to the engineer. It is
+versioned, it records who saved it, it can be rolled back, and it can be applied to whichever
+console is in the room tonight.
+
+```bash
+# Save the room's base mix, scoped to what matters for this preset
+curl -X POST localhost:3000/api/presets -H 'content-type: application/json' -d '{
+  "name": "Rock Night - FOH", "venueId": "...", "consoleId": "default",
+  "capture": { "sections": ["mix", "config", "eq"] } }'
+
+# See what it would do before it does it
+curl -X POST localhost:3000/api/presets/<id>/preview -d '{"consoleId":"default"}'
+
+# Apply it
+curl -X POST localhost:3000/api/presets/<id>/apply -d '{"consoleId":"default"}'
+```
+
+**Applying is a diff, not a rewrite.** The state mirror already knows what the console holds,
+so only values that actually differ are sent — applying a preset the console already matches
+sends nothing at all. `preview` runs the same diff and sends nothing ever, which makes
+"what is this about to do to my mix" a safe question to ask during a show.
+
+**Levels are walked, not jumped.** A fader that snaps clicks, and a recall that moves twenty
+of them at once clicks twenty times. Level changes are ramped over a few hundred milliseconds
+while mutes, EQ and routing go out immediately, so the recall feels instant without being
+audible. The ramp is *budgeted* against the console's ~50 msg/s: steps per fader are derived
+from how many faders are moving, because twenty faders at twenty steps each is 400 datagrams
+— eight seconds of wire time that would starve operator commands. `immediate: true` skips
+ramping for when speed matters more than smoothness.
+
+**Interpolation is in fader position, not dB.** Half way through a −90 → 0 dB move the fader
+sits half way up its travel, which is what a hand on the fader does; half way in dB would be
+−45 dB, which is still silence.
+
+A band's **input list** is the other half: channel names, colours, head amp gains and phantom
+power, written onto the desk in one request. That is the fifteen minutes before doors when the
+console still says "Ch01".
+
+### Where presets are stored
+
+With `DATABASE_URL` set, presets live in PostgreSQL through Prisma:
+
+```bash
+npm run db:migrate      # apply migrations (docker compose does this on start)
+npm run db:generate     # regenerate the client after a schema change
+```
+
+Without it, they live in memory. Everything works, nothing survives a restart, and the log
+says so at boot. That is deliberate: a fresh clone has to run with `npm install &&
+npm run start:dev` and no infrastructure, and the test suite has to run in CI without a
+database. Both use the same interface, so the storage choice is not a code path that only
+production ever exercises.
+
+---
+
 ## Environment variables
 
 | Variable | Default | Meaning |
@@ -321,6 +392,9 @@ index moves, then extend `CHANNEL_SEGMENT` in
 | `METER_FPS` | `20` | Frames per second pushed to WebSocket clients |
 | `METER_RENEW_MS` | `5000` | Meter subscription renewal (console expiry is 10 000) |
 | `METER_TIME_FACTOR` | `1` | Console-side meter rate divider; 1 ≈ every 50 ms |
+| `RAMP_DEFAULT_MS` | `400` | Ramp time for level changes |
+| `RAMP_MIN_MS` / `RAMP_MAX_MS` | `300` / `800` | Window a requested ramp is clamped into |
+| `DATABASE_URL` | *(empty)* | PostgreSQL for venue presets. Empty = in-memory, lost on restart |
 
 `DATABASE_URL` and `JWT_SECRET` arrive with Phases 5 and 7.
 
@@ -338,8 +412,8 @@ readable message instead of misbehaving on stage.
 | 2 | ConsoleModule, discovery, reconnect, StateCache | **done** |
 | 3 | MixerModule, REST, Swagger, `npm run openapi:export` | **done** |
 | 4 | Metering + WebSocket at 20 fps | **done** |
-| 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | next |
-| 6 | RoomEq (REW/CSV import, auto PEQ) | pending |
+| 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | **done** |
+| 6 | RoomEq (REW/CSV import, auto PEQ) | next |
 | 7 | Auth (JWT, admin/engineer/observer) + Safety (panic, read-only, audit log) | pending |
 
 Acceptance criteria 3 (set −6 dB, read back −6 dB ±0.1) and 5 (500-command burst, nothing

@@ -8,6 +8,7 @@ import { HealthModule } from './health/health.module.js';
 import { MeteringModule } from './metering/metering.module.js';
 import { MixerModule } from './mixer/mixer.module.js';
 import { OscModule } from './osc/osc.module.js';
+import { PresetModule } from './preset/preset.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { SceneModule } from './scene/scene.module.js';
 
@@ -26,6 +27,7 @@ import { SceneModule } from './scene/scene.module.js';
     MixerModule,
     MeteringModule,
     SceneModule,
+    PresetModule,
     RealtimeModule,
     HealthModule,
   ],

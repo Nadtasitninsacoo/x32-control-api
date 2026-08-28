@@ -4,6 +4,8 @@ services:
     env_file:
       - .env
     environment:
+      # Venue presets live here. Without it the API still runs, but presets are
+      # kept in memory and lost on restart.
       DATABASE_URL: postgresql://x32:x32@postgres:5432/x32?schema=public
     ports:
       - '${PORT:-3000}:3000'

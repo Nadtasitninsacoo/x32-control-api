@@ -1,0 +1,102 @@
+// Venue presets: this project's own library of mixes, kept separately from
+// whatever scenes live on the console.
+//
+// A scene on the console belongs to the console — one show file, overwritten
+// by whoever touches it last, gone when the desk is swapped. These presets
+// belong to the engineer: versioned, attributable, and applicable to any
+// console on the network.
+
+// Prisma 7: the client is generated into the source tree and the connection
+// URL lives in prisma.config.ts, not here.
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// A place a show happens: the room, and what the engineer learned about it.
+model Venue {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  /// Free text: "Main hall", "800 cap", "concrete rear wall".
+  roomSize  String?
+  /// The notes that matter next time: where it rings, where the PA struggles.
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  presets Preset[]
+
+  @@map("venues")
+}
+
+/// A band or act, with the input list that comes with them.
+model Band {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  notes     String?
+  /// Input list: [{ input, name, color, gainDb, phantom, notes }]
+  inputList Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  presets Preset[]
+
+  @@map("bands")
+}
+
+/// A named mix, bound to a venue and/or a band.
+model Preset {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  venueId     String?
+  bandId      String?
+  /// Version number of the current head. Versions are never rewritten.
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  venue    Venue?          @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  band     Band?           @relation(fields: [bandId], references: [id], onDelete: SetNull)
+  versions PresetVersion[]
+
+  @@unique([name, venueId, bandId])
+  @@index([venueId])
+  @@index([bandId])
+  @@map("presets")
+}
+
+/// One immutable revision of a preset's values.
+model PresetVersion {
+  id        String   @id @default(uuid())
+  presetId  String
+  version   Int
+  /// Parameter address -> value in API units: { "/ch/01/mix/fader": -6 }
+  values    Json
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  preset Preset @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  @@unique([presetId, version])
+  @@map("preset_versions")
+}
+
+/// Every command this API sent to a console, and who asked for it.
+model AuditEntry {
+  id        String   @id @default(uuid())
+  at        DateTime @default(now())
+  user      String?
+  action    String
+  consoleId String?
+  detail    Json?
+
+  @@index([at])
+  @@map("audit_entries")
+}

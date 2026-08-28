@@ -747,6 +747,722 @@
         ]
       }
     },
+    "/api/venues": {
+      "get": {
+        "operationId": "VenueController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VenueDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List venues",
+        "tags": [
+          "venues"
+        ]
+      },
+      "post": {
+        "description": "The room, and what you learned about it last time you were in it.",
+        "operationId": "VenueController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVenueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A venue with that name already exists."
+          }
+        },
+        "summary": "Add a venue",
+        "tags": [
+          "venues"
+        ]
+      }
+    },
+    "/api/venues/{id}": {
+      "get": {
+        "operationId": "VenueController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "venues"
+        ]
+      },
+      "patch": {
+        "operationId": "VenueController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVenueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "venues"
+        ]
+      },
+      "delete": {
+        "operationId": "VenueController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Presets that referenced it keep their values."
+          }
+        },
+        "tags": [
+          "venues"
+        ]
+      }
+    },
+    "/api/bands": {
+      "get": {
+        "operationId": "BandController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BandDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List bands",
+        "tags": [
+          "bands"
+        ]
+      },
+      "post": {
+        "description": "What is plugged into what, what it is called, and where the gain starts.",
+        "operationId": "BandController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BandDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A band with that name already exists."
+          }
+        },
+        "summary": "Add a band and its input list",
+        "tags": [
+          "bands"
+        ]
+      }
+    },
+    "/api/bands/{id}": {
+      "get": {
+        "operationId": "BandController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BandDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "bands"
+        ]
+      },
+      "patch": {
+        "operationId": "BandController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BandDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bands"
+        ]
+      },
+      "delete": {
+        "operationId": "BandController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "bands"
+        ]
+      }
+    },
+    "/api/bands/{id}/apply-input-list": {
+      "post": {
+        "description": "Names, colours, head amp gains and phantom power for every input in the list. This is the fifteen minutes before doors when the desk still says \"Ch01\".",
+        "operationId": "BandController_applyInputList",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyInputListDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyReportDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Write the input list onto a console",
+        "tags": [
+          "bands"
+        ]
+      }
+    },
+    "/api/presets": {
+      "get": {
+        "operationId": "PresetController_list",
+        "parameters": [
+          {
+            "name": "venueId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bandId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PresetDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List presets, optionally by venue or band",
+        "tags": [
+          "presets"
+        ]
+      },
+      "post": {
+        "description": "Captures the console as it stands (or takes explicit values). Capture can be narrowed to particular strips and sections — a band preset is usually channel names, colours and gains; a venue preset is usually bus EQ and matrix levels.",
+        "operationId": "PresetController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePresetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "That name is taken for this venue and band."
+          }
+        },
+        "summary": "Save a preset",
+        "tags": [
+          "presets"
+        ]
+      }
+    },
+    "/api/presets/{id}": {
+      "get": {
+        "operationId": "PresetController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "presets"
+        ]
+      },
+      "delete": {
+        "operationId": "PresetController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "presets"
+        ]
+      }
+    },
+    "/api/presets/{id}/versions": {
+      "get": {
+        "description": "Versions are never rewritten, so anything that was ever saved can come back.",
+        "operationId": "PresetController_versions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PresetVersionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Version history, newest first",
+        "tags": [
+          "presets"
+        ]
+      },
+      "post": {
+        "description": "The previous version stays exactly where it was.",
+        "operationId": "PresetController_capture",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureVersionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetVersionDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Save the console as a new version of this preset",
+        "tags": [
+          "presets"
+        ]
+      }
+    },
+    "/api/presets/{id}/versions/{version}": {
+      "get": {
+        "operationId": "PresetController_version",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetVersionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "presets"
+        ]
+      }
+    },
+    "/api/presets/{id}/rollback": {
+      "post": {
+        "description": "Nothing is deleted, so a rollback is itself reversible.",
+        "operationId": "PresetController_rollback",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Make an earlier version current again",
+        "tags": [
+          "presets"
+        ]
+      }
+    },
+    "/api/presets/{id}/preview": {
+      "post": {
+        "description": "Sends nothing. Safe to call during a show, and the honest way to answer \"what is this preset about to do to my mix\".",
+        "operationId": "PresetController_preview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyPresetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetPreviewDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "What applying this preset would change",
+        "tags": [
+          "presets"
+        ]
+      }
+    },
+    "/api/presets/{id}/apply": {
+      "post": {
+        "description": "Only what differs is sent, and levels are ramped rather than jumped so the recall does not click. Applying a preset the console already matches sends nothing at all.",
+        "operationId": "PresetController_apply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyPresetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyReportDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply the preset to a console",
+        "tags": [
+          "presets"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "description": "Cheap enough for a load balancer; useful enough for a wall display.",
@@ -2233,6 +2949,491 @@
           "unknownLines",
           "rejectedLines",
           "applied"
+        ]
+      },
+      "VenueDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "b3f2…"
+          },
+          "name": {
+            "type": "string",
+            "example": "The Old Hall"
+          },
+          "roomSize": {
+            "type": "object",
+            "example": "800 cap, concrete rear wall"
+          },
+          "notes": {
+            "type": "object",
+            "example": "Rings at 160 Hz. Keep the subs off the wall."
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateVenueDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "The Old Hall"
+          },
+          "roomSize": {
+            "type": "string",
+            "example": "800 cap, concrete rear wall"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Rings at 160 Hz."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateVenueDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "The Old Hall"
+          },
+          "roomSize": {
+            "type": "string",
+            "example": "800 cap, concrete rear wall"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Rings at 160 Hz."
+          }
+        }
+      },
+      "InputListEntryDto": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "number",
+            "example": 1,
+            "minimum": 1,
+            "maximum": 32
+          },
+          "name": {
+            "type": "string",
+            "example": "Kick In",
+            "maxLength": 12
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "RD",
+              "GN",
+              "YE",
+              "BL",
+              "MG",
+              "CY",
+              "WH",
+              "OFFi",
+              "RDi",
+              "GNi",
+              "YEi",
+              "BLi",
+              "MGi",
+              "CYi",
+              "WHi"
+            ],
+            "example": "GN"
+          },
+          "gainDb": {
+            "type": "number",
+            "example": 24,
+            "minimum": -12,
+            "maximum": 60,
+            "description": "Head amp gain."
+          },
+          "phantom": {
+            "type": "boolean",
+            "example": false
+          },
+          "notes": {
+            "type": "string",
+            "example": "Beta 91A, inside the drum"
+          }
+        },
+        "required": [
+          "input",
+          "name"
+        ]
+      },
+      "BandDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "The Loud Ones"
+          },
+          "notes": {
+            "type": "object",
+            "example": "Guitarist brings his own wedge mix"
+          },
+          "inputList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InputListEntryDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateBandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "The Loud Ones"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Two guitars, in-ears"
+          },
+          "inputList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InputListEntryDto"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateBandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "The Loud Ones"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Two guitars, in-ears"
+          },
+          "inputList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InputListEntryDto"
+            }
+          }
+        }
+      },
+      "ApplyInputListDto": {
+        "type": "object",
+        "properties": {
+          "consoleId": {
+            "type": "string",
+            "example": "default"
+          },
+          "rampMs": {
+            "type": "number",
+            "example": 400
+          }
+        },
+        "required": [
+          "consoleId"
+        ]
+      },
+      "PresetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Rock Night — FOH"
+          },
+          "description": {
+            "type": "object"
+          },
+          "venueId": {
+            "type": "object"
+          },
+          "bandId": {
+            "type": "object"
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Version currently considered the head."
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CaptureOptionsDto": {
+        "type": "object",
+        "properties": {
+          "strips": {
+            "example": [
+              "ch/01",
+              "ch/02"
+            ],
+            "description": "Strips to capture. Default: every strip on the console.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sections": {
+            "type": "array",
+            "example": [
+              "config",
+              "mix"
+            ],
+            "description": "Parts of each strip to capture. Default: all of them.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "config",
+                "mix",
+                "sends",
+                "preamp",
+                "gate",
+                "dyn",
+                "eq"
+              ]
+            }
+          }
+        }
+      },
+      "CreatePresetDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Rock Night — FOH"
+          },
+          "description": {
+            "type": "string",
+            "example": "Base mix before the support act"
+          },
+          "venueId": {
+            "type": "string",
+            "description": "Venue this preset belongs to."
+          },
+          "bandId": {
+            "type": "string",
+            "description": "Band this preset belongs to."
+          },
+          "consoleId": {
+            "type": "string",
+            "example": "default",
+            "description": "Console to capture from. Ignored when `values` is given."
+          },
+          "capture": {
+            "$ref": "#/components/schemas/CaptureOptionsDto"
+          },
+          "values": {
+            "type": "object",
+            "description": "Explicit values, instead of capturing from a console.",
+            "example": {
+              "/ch/01/mix/fader": -6
+            }
+          },
+          "note": {
+            "type": "string",
+            "example": "After soundcheck"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "PresetVersionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "presetId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number",
+            "example": 3
+          },
+          "values": {
+            "type": "object",
+            "example": {
+              "/ch/01/mix/fader": -6,
+              "/ch/01/config/name": "Kick In"
+            },
+            "description": "Parameter address -> value in API units."
+          },
+          "note": {
+            "type": "object",
+            "example": "After soundcheck"
+          },
+          "createdBy": {
+            "type": "object",
+            "example": "sam"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "presetId",
+          "version",
+          "values",
+          "createdAt"
+        ]
+      },
+      "CaptureVersionDto": {
+        "type": "object",
+        "properties": {
+          "consoleId": {
+            "type": "string",
+            "example": "default"
+          },
+          "capture": {
+            "$ref": "#/components/schemas/CaptureOptionsDto"
+          },
+          "values": {
+            "type": "object",
+            "example": {
+              "/ch/01/mix/fader": -6
+            }
+          },
+          "note": {
+            "type": "string",
+            "example": "Louder for the headline set"
+          }
+        }
+      },
+      "RollbackDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "example": 2,
+            "description": "Version to make current again."
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "ApplyPresetDto": {
+        "type": "object",
+        "properties": {
+          "consoleId": {
+            "type": "string",
+            "example": "default",
+            "description": "Console to apply to."
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Version to apply. Default: the current one."
+          },
+          "rampMs": {
+            "type": "number",
+            "example": 400,
+            "description": "Ramp time for level changes, clamped to the configured window."
+          },
+          "immediate": {
+            "type": "boolean",
+            "example": false,
+            "description": "Skip ramping. For a panic recall, where speed beats smoothness."
+          }
+        },
+        "required": [
+          "consoleId"
+        ]
+      },
+      "PresetPreviewDto": {
+        "type": "object",
+        "properties": {
+          "changes": {
+            "example": [
+              {
+                "address": "/ch/01/mix/fader",
+                "from": -12,
+                "to": -6,
+                "ramped": true
+              }
+            ],
+            "description": "What would change, and which of those would be ramped.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unchanged": {
+            "type": "number",
+            "example": 741,
+            "description": "Values the console already matches."
+          },
+          "unknown": {
+            "example": [],
+            "description": "Stored addresses this build has no schema for.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "changes",
+          "unchanged",
+          "unknown"
         ]
       },
       "HealthDto": {

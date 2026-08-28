@@ -22,6 +22,7 @@ import {
   meterToDbfs,
   mutedToOnInt,
 } from '../../src/osc/units/x32-units.js';
+import { silentLogger } from '../silent-logger.js';
 import { X32Emulator } from '../emulator/x32-emulator.js';
 
 /**
@@ -134,9 +135,10 @@ describe('OSC link against the X32 emulator', () => {
       expect(argAsString(reply.args[0])).toBe('/ch/01/mix/fader -6.0');
     });
 
-    it('dumps a container one level deep', async () => {
+    it('dumps a container in schema order, in display units', async () => {
       const reply = await client.nodeQuery('ch/01/config');
-      expect(argAsString(reply.args[0])).toMatch(/^\/ch\/01\/config "" 1 WH$/);
+      // name, icon, colour, source — the order the schema declares.
+      expect(argAsString(reply.args[0])).toBe('/ch/01/config "" 1 WH 0');
     });
   });
 
@@ -297,7 +299,9 @@ describe('XRemoteHeartbeatService (wired through Nest)', () => {
         ScheduleModule.forRoot(),
         OscModule,
       ],
-    }).compile();
+    })
+      .setLogger(silentLogger)
+      .compile();
     await moduleRef.init();
 
     client = moduleRef.get(OscClientFactory).create({

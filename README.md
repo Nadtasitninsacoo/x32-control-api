@@ -6,10 +6,11 @@ Self-contained: its own `package.json`, `.env`, Dockerfile and git repository. I
 workspace, no shared folder and no dependency on any file outside this directory. A frontend
 talks to it over HTTP/WS only, and learns its types from the exported `openapi.json`.
 
-> **Status — Phase 1 of 7 complete.** The OSC core (codec, transport, pacing, request
-> correlation, `/xremote` heartbeat), the X32 emulator and their tests are done and green.
-> Phases 2–7 (console management, mixer REST, metering, scenes, venue presets, room EQ,
-> auth/safety) are not built yet. See [Roadmap](#roadmap).
+> **Status — Phases 1–2 of 7 complete.** The OSC core (codec, transport, pacing, request
+> correlation, `/xremote` heartbeat) and console management (discovery, supervised
+> connections with automatic reconnect, the in-memory state mirror) are done and green,
+> with the X32 emulator behind their tests. Phases 3–7 (mixer REST, metering, scenes,
+> venue presets, room EQ, auth/safety) are not built yet. See [Roadmap](#roadmap).
 
 ---
 
@@ -80,18 +81,25 @@ Two polarity traps are encoded once, with names that cannot be misread:
 
 ---
 
-## Architecture (Phase 1)
+## Architecture
 
 ```
 src/osc/
   codec/       OSC 1.0 encoder/decoder — int32, float32, string, blob, bundles
   units/       raw float  <->  dB / Hz / ratio / ms   (the only place that knows raw values)
+  schema/      what each parameter is: type, taper, and how /node prints it
   addresses/   how many strips exist and how their roots are spelled
   rate-limit/  priority send queue: ≤50 msg/s, ≥2 ms apart, never drops
   transport/   one UDP socket per console, DRY_RUN aware
   broker/      request → reply correlation (the X32 has no message ids)
   heartbeat/   /xremote renewal every 8 s
   client/      OscClient = transport + pacing + broker, one per consoleId
+
+src/console/
+  discovery/   broadcast /info and collect whoever answers
+  connection/  one supervised link: identify, sync, probe, reconnect with backoff
+  state/       the in-memory mirror, /node dump parser, sync staging
+  console-manager.service.ts   every link in the process, keyed by consoleId
 ```
 
 Four facts about the X32 shape all of this:
@@ -109,9 +117,46 @@ Four facts about the X32 shape all of this:
 
 ---
 
+## Staying connected, and the state mirror
+
+UDP has no broken connection to detect, so liveness is inferred: an `/xinfo` probe goes out
+every 2 s, and two unanswered probes move the link to `reconnecting`, where it retries with
+backoff capped at 5 s. Detection plus recovery therefore stays inside the 10-second
+requirement -- and a test asserts that arithmetic against the shipped defaults themselves,
+so lowering a default can never quietly break the guarantee.
+
+Coming back is not just re-opening a socket: `/xremote` is re-subscribed and the mirror is
+re-synced, because every change made while the link was down was pushed to nobody.
+
+**The mirror is filled once and then never re-polled.** A full sweep is roughly 1500 `/node`
+queries; at the pacing the console tolerates, that is half a minute of traffic which would
+starve operator commands. So the sync is staged, and the link is usable after the first stage:
+
+| Stage | Contents | Queries |
+| --- | --- | --- |
+| `surface` | names, colours, faders, mutes, pan, head amps | ~160 |
+| `sends` | every bus send on every input strip | ~770 |
+| `full` | preamp, gate, dynamics, EQ | ~580 |
+
+After that the `/xremote` feed carries every change -- including moves made on the physical
+surface -- straight into the mirror.
+
+### The `/node` decoding risk, and what is done about it
+
+`/node` answers in *display* units (`/ch/01/mix ON -6.0 ON +0 OFF -oo`), so values are decoded
+by position against [the schema](src/osc/schema/x32-schema.ts). That field ordering comes from
+unofficial documentation, not from hardware on this desk. A line whose value count does not
+match the schema is therefore **never decoded by position** -- one extra field would shift
+every value onto the wrong parameter, and a wrong fader is a wrong show. Those containers are
+reported and re-read parameter by parameter instead: slower, always correct.
+`SyncReport.unparsed` names them, so a firmware mismatch surfaces as a log line and a number
+rather than as silent corruption.
+
+---
+
 ## Supported OSC addresses
 
-Phase 1 implements the transport for all of these; the REST surface arrives in Phase 3.
+The transport and the state mirror cover all of these; the REST surface arrives in Phase 3.
 
 | Address | Direction | Notes |
 | --- | --- | --- |
@@ -169,6 +214,14 @@ Not modelled: routing matrix, effects rack, USB recorder, show/cue file contents
 | `OSC_REQUEST_TIMEOUT_MS` | `1000` | Reply timeout for a query |
 | `XREMOTE_INTERVAL_MS` | `8000` | `/xremote` renewal period (console expiry is 10 000) |
 | `DRY_RUN` | `false` | Log state-changing OSC instead of sending it; queries still work |
+| `CONSOLE_AUTO_CONNECT` | `true` | Connect to `X32_HOST` at boot when one is set |
+| `CONSOLE_PROBE_INTERVAL_MS` | `2000` | Liveness probe period |
+| `CONSOLE_PROBE_TIMEOUT_MS` | `1000` | Probe reply timeout |
+| `CONSOLE_MAX_MISSED_PROBES` | `2` | Unanswered probes before the link counts as lost |
+| `CONSOLE_RECONNECT_MIN_MS` | `500` | First reconnect delay |
+| `CONSOLE_RECONNECT_MAX_MS` | `5000` | Reconnect backoff ceiling — keep it low |
+| `CONSOLE_SYNC_DEPTH` | `full` | `surface` \| `sends` \| `full` |
+| `DISCOVERY_TIMEOUT_MS` | `1500` | How long a discovery sweep listens |
 
 `DATABASE_URL` and `JWT_SECRET` arrive with Phases 5 and 7.
 
@@ -183,8 +236,8 @@ readable message instead of misbehaving on stage.
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1 | OscModule + emulator + tests | **done** |
-| 2 | ConsoleModule, discovery, reconnect, StateCache | next |
-| 3 | MixerModule, REST, Swagger, `npm run openapi:export` | pending |
+| 2 | ConsoleModule, discovery, reconnect, StateCache | **done** |
+| 3 | MixerModule, REST, Swagger, `npm run openapi:export` | next |
 | 4 | Metering + WebSocket at 20 fps | pending |
 | 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | pending |
 | 6 | RoomEq (REW/CSV import, auto PEQ) | pending |
@@ -192,9 +245,11 @@ readable message instead of misbehaving on stage.
 
 Acceptance criteria 3 (set −6 dB, read back −6 dB ±0.1) and 5 (500-command burst, nothing
 dropped) are covered by
-[`test/integration/osc-console-link.spec.ts`](test/integration/osc-console-link.spec.ts).
-Criterion 4 (reconnect within 10 s of a cable being replugged) belongs to Phase 2; criteria 1
-and 2 complete when Swagger lands in Phase 3.
+[`test/integration/osc-console-link.spec.ts`](test/integration/osc-console-link.spec.ts);
+criterion 4 (reconnect within 10 s of a replug) by
+[`test/integration/console-connection.spec.ts`](test/integration/console-connection.spec.ts),
+which stops the emulator mid-test and restarts it on the same port. Criteria 1 and 2 complete
+when Swagger lands in Phase 3.
 
 ## Deviations from the original spec
 
@@ -204,3 +259,8 @@ and 2 complete when Swagger lands in Phase 3.
 - Meter bank sizes (`/meters/0` 70, `/meters/1` 96, `/meters/2` 49, `/meters/13` 24) follow the
   unofficial protocol notes and should be confirmed against the appendix or real hardware
   before Phase 4 maps blob indices to strips.
+- `/node` container field orders (particularly `dyn`, which the notes are inconsistent about)
+  are unverified against hardware. The parser refuses rather than guesses on a mismatch, so the
+  cost of being wrong is a slower sync, not bad data -- but the orders are worth confirming.
+- `DRY_RUN` suppresses state-changing messages and lets queries through, so a read-only UI
+  still works against a live console. Say so if it should mean total silence instead.

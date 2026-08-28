@@ -10,6 +10,12 @@ import {
   validateSync,
 } from 'class-validator';
 
+export enum SyncDepth {
+  Surface = 'surface',
+  Sends = 'sends',
+  Full = 'full',
+}
+
 export enum NodeEnv {
   Development = 'development',
   Test = 'test',
@@ -97,6 +103,60 @@ export class EnvVars {
   @Min(1000)
   @Max(9500)
   XREMOTE_INTERVAL_MS = 8000;
+
+  /* --- Console link supervision --- */
+
+  /** Connect to X32_HOST at boot, when one is configured. */
+  @Transform(toBoolean)
+  @IsBoolean()
+  CONSOLE_AUTO_CONNECT = true;
+
+  /** How often to check the console is still answering. */
+  @Transform(toInt)
+  @IsInt()
+  @Min(250)
+  @Max(60000)
+  CONSOLE_PROBE_INTERVAL_MS = 2000;
+
+  @Transform(toInt)
+  @IsInt()
+  @Min(50)
+  @Max(10000)
+  CONSOLE_PROBE_TIMEOUT_MS = 1000;
+
+  /** Consecutive unanswered probes before the link counts as lost. */
+  @Transform(toInt)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  CONSOLE_MAX_MISSED_PROBES = 2;
+
+  @Transform(toInt)
+  @IsInt()
+  @Min(100)
+  @Max(60000)
+  CONSOLE_RECONNECT_MIN_MS = 500;
+
+  /**
+   * Reconnect backoff ceiling. Kept low on purpose: a console that comes back
+   * must be picked up within seconds, not minutes.
+   */
+  @Transform(toInt)
+  @IsInt()
+  @Min(500)
+  @Max(60000)
+  CONSOLE_RECONNECT_MAX_MS = 5000;
+
+  /** How much of the console to mirror: surface | sends | full. */
+  @IsEnum(SyncDepth)
+  CONSOLE_SYNC_DEPTH: SyncDepth = SyncDepth.Full;
+
+  /** How long a discovery sweep listens for answers. */
+  @Transform(toInt)
+  @IsInt()
+  @Min(100)
+  @Max(30000)
+  DISCOVERY_TIMEOUT_MS = 1500;
 
   /* --- Safety --- */
 

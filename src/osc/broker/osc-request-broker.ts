@@ -50,7 +50,8 @@ interface PendingRequest {
   readonly address: string;
   readonly resolve: (message: OscMessage) => void;
   readonly reject: (error: Error) => void;
-  readonly timer: NodeJS.Timeout;
+  /** Armed only once the request has actually left the send queue. */
+  timer: NodeJS.Timeout | undefined;
 }
 
 /** `/node` replies arrive without a leading slash; normalise both forms. */
@@ -90,19 +91,9 @@ export class OscRequestBroker {
     );
     const timeoutMs = options.timeoutMs ?? this.options.timeoutMs;
 
+    let entry!: PendingRequest;
     const reply = new Promise<OscMessage>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.remove(replyAddress, entry);
-        reject(new OscRequestTimeoutError(replyAddress, timeoutMs));
-      }, timeoutMs);
-      timer.unref?.();
-
-      const entry: PendingRequest = {
-        address: replyAddress,
-        resolve,
-        reject,
-        timer,
-      };
+      entry = { address: replyAddress, resolve, reject, timer: undefined };
       const queue = this.pending.get(replyAddress);
       if (queue) queue.push(entry);
       else this.pending.set(replyAddress, [entry]);
@@ -117,8 +108,13 @@ export class OscRequestBroker {
         replyAddress,
         error instanceof Error ? error : new Error(String(error)),
       );
+      return reply;
     }
 
+    // The clock starts when the datagram leaves, not when it was queued: a
+    // bulk sync can sit behind hundreds of paced messages, and that wait says
+    // nothing about whether the console is answering.
+    this.arm(entry, timeoutMs);
     return reply;
   }
 
@@ -137,7 +133,7 @@ export class OscRequestBroker {
     if (queue.length === 0) this.pending.delete(key);
     if (!entry) return false;
 
-    clearTimeout(entry.timer);
+    if (entry.timer) clearTimeout(entry.timer);
     entry.resolve(message);
     return true;
   }
@@ -148,10 +144,21 @@ export class OscRequestBroker {
     this.pending.clear();
     for (const queue of queues) {
       for (const entry of queue) {
-        clearTimeout(entry.timer);
+        if (entry.timer) clearTimeout(entry.timer);
         entry.reject(reason ?? new OscRequestAbortedError(entry.address));
       }
     }
+  }
+
+  /** Starts the reply timeout, unless the reply already arrived. */
+  private arm(entry: PendingRequest, timeoutMs: number): void {
+    const queue = this.pending.get(entry.address);
+    if (!queue || !queue.includes(entry)) return; // already answered
+    entry.timer = setTimeout(() => {
+      this.remove(entry.address, entry);
+      entry.reject(new OscRequestTimeoutError(entry.address, timeoutMs));
+    }, timeoutMs);
+    entry.timer.unref?.();
   }
 
   private remove(address: string, entry: PendingRequest): void {
@@ -166,7 +173,7 @@ export class OscRequestBroker {
     const queue = this.pending.get(address);
     const entry = queue?.pop();
     if (!entry) return;
-    clearTimeout(entry.timer);
+    if (entry.timer) clearTimeout(entry.timer);
     if (queue && queue.length === 0) this.pending.delete(address);
     this.logger.debug(
       `send failed for ${formatMessage({ address, args: [] })}: ${error.message}`,

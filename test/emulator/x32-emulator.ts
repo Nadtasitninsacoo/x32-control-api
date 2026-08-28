@@ -22,9 +22,13 @@ import {
   CHANNEL_COLORS,
   eqFreqToFloat,
   headampGainToFloat,
-  levelFloatToDb,
   lowCutFreqToFloat,
 } from '../../src/osc/units/x32-units.js';
+import {
+  containerFor,
+  formatNodeToken,
+  paramFor,
+} from '../../src/osc/schema/x32-schema.js';
 
 /**
  * A UDP stand-in for an X32/M32 console.
@@ -452,20 +456,26 @@ export class X32Emulator {
     const path = rawPath.startsWith('/') ? rawPath.slice(1) : rawPath;
     const address = `/${path}`;
 
-    const leaf = this.state.get(address);
-    if (leaf)
-      return `${address} ${leaf.map((a) => formatNodeValue(address, a)).join(' ')}`;
-
-    const prefix = `${address}/`;
-    const children: string[] = [];
-    for (const [childAddress, args] of this.state) {
-      if (!childAddress.startsWith(prefix)) continue;
-      if (childAddress.slice(prefix.length).includes('/')) continue; // one level only
-      children.push(
-        args.map((a) => formatNodeValue(childAddress, a)).join(' '),
-      );
+    // A leaf query prints the single value.
+    const leaf = paramFor(address);
+    const stored = this.state.get(address);
+    if (leaf && stored && stored.length > 0) {
+      return `${address} ${formatNodeToken(leaf, stored[0])}`;
     }
-    return `${address}${children.length ? ` ${children.join(' ')}` : ''}`;
+
+    // A container prints its children in schema order, in display units.
+    const container = containerFor(address);
+    if (container) {
+      const tokens: string[] = [];
+      for (const child of container.children) {
+        const args = this.state.get(`${address}/${child.name}`);
+        if (!args || args.length === 0) return address; // node this model lacks
+        tokens.push(formatNodeToken(child, args[0]));
+      }
+      return `${address} ${tokens.join(' ')}`;
+    }
+
+    return address;
   }
 
   /* ------------------------------ initial state --------------------------- */
@@ -480,6 +490,8 @@ export class X32Emulator {
       set(`${root}/config/name`, [oscString('')]);
       set(`${root}/config/icon`, [oscInt(1)]);
       set(`${root}/config/color`, [oscInt(CHANNEL_COLORS.indexOf('WH'))]);
+      if (/^\/(ch|auxin)\//.test(root))
+        set(`${root}/config/source`, [oscInt(0)]);
 
       const levelPrefix = isDca ? root : `${root}/mix`;
       set(`${levelPrefix}/on`, [oscInt(1)]);
@@ -535,9 +547,12 @@ export class X32Emulator {
     set(`${root}/gate/attack`, [oscFloat(0.1)]);
     set(`${root}/gate/hold`, [oscFloat(0.5)]);
     set(`${root}/gate/release`, [oscFloat(0.3)]);
+    set(`${root}/gate/keysrc`, [oscInt(0)]);
 
     set(`${root}/dyn/on`, [oscInt(0)]);
     set(`${root}/dyn/mode`, [oscInt(0)]);
+    set(`${root}/dyn/det`, [oscInt(0)]);
+    set(`${root}/dyn/env`, [oscInt(1)]);
     set(`${root}/dyn/thr`, [oscFloat(0.5)]);
     set(`${root}/dyn/ratio`, [oscInt(3)]);
     set(`${root}/dyn/knee`, [oscFloat(0.5)]);
@@ -545,6 +560,8 @@ export class X32Emulator {
     set(`${root}/dyn/attack`, [oscFloat(0.1)]);
     set(`${root}/dyn/hold`, [oscFloat(0.5)]);
     set(`${root}/dyn/release`, [oscFloat(0.3)]);
+    set(`${root}/dyn/pos`, [oscInt(1)]);
+    set(`${root}/dyn/keysrc`, [oscInt(0)]);
     set(`${root}/dyn/mix`, [oscFloat(1)]);
 
     set(`${root}/eq/on`, [oscInt(1)]);
@@ -557,33 +574,4 @@ export class X32Emulator {
       set(`${root}/eq/${band}/q`, [oscFloat(0.5)]);
     });
   }
-}
-
-/** `/node` dumps use the console's *display* units, not raw floats. */
-export function formatNodeValue(address: string, arg: OscArg): string {
-  if (arg.type === 's') return `"${arg.value}"`;
-  if (arg.type === 'b') return `<blob>`;
-
-  if (
-    address.endsWith('/on') ||
-    address.endsWith('/st') ||
-    address.endsWith('/mono')
-  ) {
-    return arg.value >= 1 ? 'ON' : 'OFF';
-  }
-  if (address.endsWith('/color')) {
-    return CHANNEL_COLORS[
-      Math.max(0, Math.min(CHANNEL_COLORS.length - 1, Math.round(arg.value)))
-    ];
-  }
-  if (
-    address.endsWith('/fader') ||
-    address.endsWith('/level') ||
-    address.endsWith('/mlevel')
-  ) {
-    const db = levelFloatToDb(arg.value);
-    return db <= -90 ? '-oo' : db.toFixed(1);
-  }
-  if (arg.type === 'i') return String(arg.value);
-  return arg.value.toFixed(6);
 }

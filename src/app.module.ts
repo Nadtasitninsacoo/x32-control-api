@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { validateEnv } from './config/env.validation.js';
+import { ConsoleModule } from './console/console.module.js';
 import { OscModule } from './osc/osc.module.js';
 
 @Module({
@@ -16,6 +17,7 @@ import { OscModule } from './osc/osc.module.js';
     }),
     ScheduleModule.forRoot(),
     OscModule,
+    ConsoleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

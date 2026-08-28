@@ -149,6 +149,38 @@ describe('OscRequestBroker', () => {
     expect(broker.pendingCount).toBe(0);
   });
 
+  it('starts the reply timeout when the message is sent, not when it is queued', async () => {
+    const sent: OscMessage[] = [];
+    let release: (() => void) | undefined;
+    const queued = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const broker = new OscRequestBroker(
+      async (msg) => {
+        await queued; // stands in for a long wait behind the rate limiter
+        sent.push(msg);
+      },
+      { timeoutMs: 100 },
+    );
+
+    const pending = broker.request(message('/ch/01/mix/fader'));
+
+    // Far longer than the timeout, but the datagram has not left yet.
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(sent).toHaveLength(0);
+
+    release?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveLength(1);
+
+    // Answering now, well inside the timeout measured from the send.
+    await vi.advanceTimersByTimeAsync(50);
+    expect(
+      broker.handleMessage(message('/ch/01/mix/fader', oscFloat(0.6))),
+    ).toBe(true);
+    await expect(pending).resolves.toMatchObject({ args: [{ value: 0.6 }] });
+  });
+
   it('sends polling queries at polling priority when asked', async () => {
     const { broker, sent } = harness();
     const pending = expect(

@@ -6,11 +6,10 @@ Self-contained: its own `package.json`, `.env`, Dockerfile and git repository. I
 workspace, no shared folder and no dependency on any file outside this directory. A frontend
 talks to it over HTTP/WS only, and learns its types from the exported `openapi.json`.
 
-> **Status — Phases 1–2 of 7 complete.** The OSC core (codec, transport, pacing, request
-> correlation, `/xremote` heartbeat) and console management (discovery, supervised
-> connections with automatic reconnect, the in-memory state mirror) are done and green,
-> with the X32 emulator behind their tests. Phases 3–7 (mixer REST, metering, scenes,
-> venue presets, room EQ, auth/safety) are not built yet. See [Roadmap](#roadmap).
+> **Status — Phases 1–3 of 7 complete.** The OSC core, console management and the mixer
+> REST surface (with Swagger and an exported `openapi.json`) are done and green, with the
+> X32 emulator behind their tests. Phases 4–7 (metering/WebSocket, scenes, venue presets,
+> room EQ, auth/safety) are not built yet. See [Roadmap](#roadmap).
 
 ---
 
@@ -32,10 +31,20 @@ npm run emulator            # UDP 127.0.0.1:10023
 ### Tests
 
 ```bash
-npm test          # unit + emulator integration — needs no console, no database
+npm test              # unit + emulator integration + REST — no console, no database
+npm run test:e2e      # boots the real AppModule over HTTP
 npm run typecheck
 npm run lint
 ```
+
+### The frontend contract
+
+```bash
+npm run openapi:export      # -> openapi.json at the repository root
+```
+
+That file is the only thing a frontend needs from this project — there is no shared package
+and no shared folder. Swagger UI is at **`/api/docs`** while the API is running.
 
 Every test runs against the built-in emulator, so the whole suite is CI-safe.
 
@@ -198,6 +207,48 @@ Not modelled: routing matrix, effects rack, USB recorder, show/cue file contents
 
 ---
 
+## The REST surface
+
+Base path `/api`. Interactive docs at `/api/docs`, machine-readable at
+[`openapi.json`](openapi.json).
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| `GET` | `/api/health` | Liveness, plus how many consoles are connected |
+| `GET` | `/api/consoles` | Every managed console and its link state |
+| `POST` | `/api/consoles/discover` | Broadcast `/info` and report who answers |
+| `POST` | `/api/consoles` | Connect to a console |
+| `GET` | `/api/consoles/{id}` | One console's status |
+| `DELETE` | `/api/consoles/{id}` | Disconnect (the console itself is untouched) |
+| `POST` | `/api/consoles/{id}/resync` | Re-read the console into the mirror |
+| `GET` | `/api/consoles/{id}/state` | Raw mirror contents under a prefix (troubleshooting) |
+| `GET` | `/api/consoles/{id}/strips` | All 80 strips: name, colour, fader, mute |
+| `GET` | `/api/consoles/{id}/strips/{kind}/{index}` | One strip in full |
+| `PATCH` | `/api/consoles/{id}/strips/{kind}/{index}` | Change part of a strip |
+
+`kind` is `ch`, `auxin`, `fxrtn`, `bus`, `mtx`, `main` or `dca`. Indices may be padded or not
+(`ch/1` == `ch/01`), and the mains answer to `main/st` (or `main/lr`) and `main/m`.
+
+```bash
+# Set channel 1 to -6 dB, name it, and send it to bus 5
+curl -X PATCH localhost:3000/api/consoles/default/strips/ch/1   -H 'content-type: application/json'   -d '{"mix":{"faderDb":-6},"config":{"name":"Kick In","color":"GN"},
+       "sends":[{"to":5,"on":true,"levelDb":-12}]}'
+```
+
+Three things this layer refuses to do quietly:
+
+- **It does not clamp.** `faderDb: 20` is a 400, not a silent +10. An operator finds out that
+  the console cannot do it before the show rather than during it.
+- **It does not accept unknown fields.** A typo like `faderDB` is a 400, not a no-op.
+- **It does not offer sections a strip lacks.** A DCA has no EQ, a bus has no gate; asking for
+  one is a 400 with a reason, rather than a write the console ignores.
+
+Reads are served from the state mirror, so they cost nothing on the wire and reflect moves
+made on the physical surface. Writes go out immediately and are applied to the mirror
+optimistically; the console's own echo confirms them milliseconds later.
+
+---
+
 ## Environment variables
 
 | Variable | Default | Meaning |
@@ -237,8 +288,8 @@ readable message instead of misbehaving on stage.
 | --- | --- | --- |
 | 1 | OscModule + emulator + tests | **done** |
 | 2 | ConsoleModule, discovery, reconnect, StateCache | **done** |
-| 3 | MixerModule, REST, Swagger, `npm run openapi:export` | next |
-| 4 | Metering + WebSocket at 20 fps | pending |
+| 3 | MixerModule, REST, Swagger, `npm run openapi:export` | **done** |
+| 4 | Metering + WebSocket at 20 fps | next |
 | 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | pending |
 | 6 | RoomEq (REW/CSV import, auto PEQ) | pending |
 | 7 | Auth (JWT, admin/engineer/observer) + Safety (panic, read-only, audit log) | pending |

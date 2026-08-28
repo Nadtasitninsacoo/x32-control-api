@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { OscModule } from '../osc/osc.module.js';
+import { ConsoleController } from './console.controller.js';
 import { ConsoleManagerService } from './console-manager.service.js';
 import { ConsoleDiscoveryService } from './discovery/console-discovery.service.js';
 
@@ -10,6 +11,7 @@ import { ConsoleDiscoveryService } from './discovery/console-discovery.service.j
  */
 @Module({
   imports: [OscModule],
+  controllers: [ConsoleController],
   providers: [ConsoleManagerService, ConsoleDiscoveryService],
   exports: [ConsoleManagerService, ConsoleDiscoveryService],
 })

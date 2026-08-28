@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { validateEnv } from './config/env.validation.js';
 import { ConsoleModule } from './console/console.module.js';
+import { HealthModule } from './health/health.module.js';
+import { MixerModule } from './mixer/mixer.module.js';
 import { OscModule } from './osc/osc.module.js';
 
 @Module({
@@ -18,8 +18,8 @@ import { OscModule } from './osc/osc.module.js';
     ScheduleModule.forRoot(),
     OscModule,
     ConsoleModule,
+    MixerModule,
+    HealthModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

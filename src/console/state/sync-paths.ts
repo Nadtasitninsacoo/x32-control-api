@@ -4,6 +4,10 @@ import {
   headampRoot,
   pad2,
 } from '../../osc/addresses/x32-addresses.js';
+import {
+  capabilitiesFor,
+  familyOf,
+} from '../../osc/schema/x32-capabilities.js';
 import { SyncDepth } from '../console.types.js';
 
 /**
@@ -14,37 +18,30 @@ import { SyncDepth } from '../console.types.js';
  * that is close to half a minute of traffic, which is why it is staged: the
  * link is usable after the surface stage (~160 queries, about three seconds)
  * and the rest streams in behind it at polling priority.
+ *
+ * What each strip is asked for comes from its capabilities, so nothing is ever
+ * queried on a strip that does not have it — an unanswered query costs a full
+ * timeout and buys nothing.
  */
 
-const PROCESSING_SUFFIXES = [
-  '/preamp',
-  '/gate',
-  '/dyn',
-  '/eq',
-  '/eq/1',
-  '/eq/2',
-  '/eq/3',
-  '/eq/4',
-];
-
-/** Strips that carry a channel-strip processing chain. */
-function processingRoots(): string[] {
-  return allStripRoots().filter((root) => !root.startsWith('/dca/'));
+interface Strip {
+  readonly root: string;
+  readonly capabilities: ReturnType<typeof capabilitiesFor>;
 }
 
-/** Strips that can send to a bus. */
-function sendSourceRoots(): string[] {
-  return allStripRoots().filter((root) => /^\/(ch|auxin|fxrtn)\//.test(root));
+function strips(): Strip[] {
+  return allStripRoots().flatMap((root) => {
+    const family = familyOf(root);
+    return family ? [{ root, capabilities: capabilitiesFor(family) }] : [];
+  });
 }
 
 export function surfacePaths(): string[] {
   const paths: string[] = [];
-  for (const root of allStripRoots()) {
-    if (root.startsWith('/dca/')) {
-      paths.push(root, `${root}/config`);
-      continue;
-    }
-    paths.push(`${root}/config`, `${root}/mix`);
+  for (const { root, capabilities } of strips()) {
+    if (capabilities.config) paths.push(`${root}/config`);
+    // A DCA's fader and mute live on the root itself, not under /mix.
+    paths.push(capabilities.mix ? `${root}/mix` : root);
   }
   for (let input = 1; input <= STRIP_COUNTS.ch; input += 1) {
     paths.push(headampRoot(input));
@@ -54,9 +51,9 @@ export function surfacePaths(): string[] {
 
 export function sendPaths(): string[] {
   const paths: string[] = [];
-  for (const root of sendSourceRoots()) {
-    for (let bus = 1; bus <= STRIP_COUNTS.bus; bus += 1) {
-      paths.push(`${root}/mix/${pad2(bus)}`);
+  for (const { root, capabilities } of strips()) {
+    for (let send = 1; send <= capabilities.sends; send += 1) {
+      paths.push(`${root}/mix/${pad2(send)}`);
     }
   }
   return paths;
@@ -64,8 +61,16 @@ export function sendPaths(): string[] {
 
 export function processingPaths(): string[] {
   const paths: string[] = [];
-  for (const root of processingRoots()) {
-    for (const suffix of PROCESSING_SUFFIXES) paths.push(`${root}${suffix}`);
+  for (const { root, capabilities } of strips()) {
+    if (capabilities.preamp) paths.push(`${root}/preamp`);
+    if (capabilities.gate) paths.push(`${root}/gate`);
+    if (capabilities.dyn) paths.push(`${root}/dyn`);
+    if (capabilities.eqBands > 0) {
+      paths.push(`${root}/eq`);
+      for (let band = 1; band <= capabilities.eqBands; band += 1) {
+        paths.push(`${root}/eq/${band}`);
+      }
+    }
   }
   return paths;
 }
@@ -89,9 +94,11 @@ export function syncStages(
   const stages: { depth: SyncDepth; paths: string[] }[] = [
     { depth: 'surface', paths: surfacePaths() },
   ];
-  if (depth === 'sends' || depth === 'full')
+  if (depth === 'sends' || depth === 'full') {
     stages.push({ depth: 'sends', paths: sendPaths() });
-  if (depth === 'full')
+  }
+  if (depth === 'full') {
     stages.push({ depth: 'full', paths: processingPaths() });
+  }
   return stages;
 }

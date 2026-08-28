@@ -16,7 +16,6 @@ import {
   allStripRoots,
   headampRoot,
   pad2,
-  stripRoots,
 } from '../../src/osc/addresses/x32-addresses.js';
 import {
   CHANNEL_COLORS,
@@ -29,6 +28,11 @@ import {
   formatNodeToken,
   paramFor,
 } from '../../src/osc/schema/x32-schema.js';
+import {
+  StripCapabilities,
+  capabilitiesFor,
+  familyOf,
+} from '../../src/osc/schema/x32-capabilities.js';
 
 /**
  * A UDP stand-in for an X32/M32 console.
@@ -486,43 +490,39 @@ export class X32Emulator {
     };
 
     for (const root of allStripRoots()) {
-      const isDca = root.startsWith('/dca/');
-      set(`${root}/config/name`, [oscString('')]);
-      set(`${root}/config/icon`, [oscInt(1)]);
-      set(`${root}/config/color`, [oscInt(CHANNEL_COLORS.indexOf('WH'))]);
-      if (/^\/(ch|auxin)\//.test(root))
-        set(`${root}/config/source`, [oscInt(0)]);
+      const family = familyOf(root);
+      if (!family) continue;
+      const caps = capabilitiesFor(family);
 
-      const levelPrefix = isDca ? root : `${root}/mix`;
-      set(`${levelPrefix}/on`, [oscInt(1)]);
-      set(`${levelPrefix}/fader`, [oscFloat(0)]);
-      if (isDca) continue;
-
-      set(`${root}/mix/st`, [oscInt(1)]);
-      set(`${root}/mix/pan`, [oscFloat(0.5)]);
-      set(`${root}/mix/mono`, [oscInt(0)]);
-      set(`${root}/mix/mlevel`, [oscFloat(0)]);
-
-      // Bus sends exist on input-side strips only.
-      if (/^\/(ch|auxin|fxrtn)\//.test(root)) {
-        for (let bus = 1; bus <= STRIP_COUNTS.bus; bus += 1) {
-          set(`${root}/mix/${pad2(bus)}/on`, [oscInt(1)]);
-          set(`${root}/mix/${pad2(bus)}/level`, [oscFloat(0)]);
-          set(`${root}/mix/${pad2(bus)}/pan`, [oscFloat(0.5)]);
-        }
-        this.seedProcessing(root, set);
+      if (caps.config) {
+        set(`${root}/config/name`, [oscString('')]);
+        set(`${root}/config/icon`, [oscInt(1)]);
+        set(`${root}/config/color`, [oscInt(CHANNEL_COLORS.indexOf('WH'))]);
+        if (caps.source) set(`${root}/config/source`, [oscInt(0)]);
       }
-    }
 
-    for (const root of stripRoots('bus').concat(stripRoots('mtx'), [
-      '/main/st',
-      '/main/m',
-    ])) {
-      this.seedProcessing(root, set);
+      // A DCA's fader and mute sit on the root; every other strip has /mix.
+      const mixRoot = caps.mix ? `${root}/mix` : root;
+      set(`${mixRoot}/on`, [oscInt(1)]);
+      set(`${mixRoot}/fader`, [oscFloat(0)]);
+      if (caps.mix) {
+        set(`${root}/mix/st`, [oscInt(1)]);
+        set(`${root}/mix/pan`, [oscFloat(0.5)]);
+        set(`${root}/mix/mono`, [oscInt(0)]);
+        set(`${root}/mix/mlevel`, [oscFloat(0)]);
+      }
+
+      for (let send = 1; send <= caps.sends; send += 1) {
+        set(`${root}/mix/${pad2(send)}/on`, [oscInt(1)]);
+        set(`${root}/mix/${pad2(send)}/level`, [oscFloat(0)]);
+        set(`${root}/mix/${pad2(send)}/pan`, [oscFloat(0.5)]);
+      }
+
+      this.seedProcessing(root, caps, set);
     }
 
     // Local head amps 1..32.
-    for (let input = 1; input <= 32; input += 1) {
+    for (let input = 1; input <= STRIP_COUNTS.ch; input += 1) {
       set(`${headampRoot(input)}/gain`, [oscFloat(headampGainToFloat(0))]);
       set(`${headampRoot(input)}/phantom`, [oscInt(0)]);
     }
@@ -533,45 +533,56 @@ export class X32Emulator {
 
   private seedProcessing(
     root: string,
+    caps: StripCapabilities,
     set: (address: string, args: OscArg[]) => void,
   ): void {
-    set(`${root}/preamp/trim`, [oscFloat(0.5)]);
-    set(`${root}/preamp/invert`, [oscInt(0)]);
-    set(`${root}/preamp/hpon`, [oscInt(0)]);
-    set(`${root}/preamp/hpf`, [oscFloat(lowCutFreqToFloat(100))]);
+    if (caps.preamp) {
+      set(`${root}/preamp/trim`, [oscFloat(0.5)]);
+      set(`${root}/preamp/invert`, [oscInt(0)]);
+      set(`${root}/preamp/hpon`, [oscInt(0)]);
+      set(`${root}/preamp/hpf`, [oscFloat(lowCutFreqToFloat(100))]);
+    }
 
-    set(`${root}/gate/on`, [oscInt(0)]);
-    set(`${root}/gate/mode`, [oscInt(0)]);
-    set(`${root}/gate/thr`, [oscFloat(0.5)]);
-    set(`${root}/gate/range`, [oscFloat(0.5)]);
-    set(`${root}/gate/attack`, [oscFloat(0.1)]);
-    set(`${root}/gate/hold`, [oscFloat(0.5)]);
-    set(`${root}/gate/release`, [oscFloat(0.3)]);
-    set(`${root}/gate/keysrc`, [oscInt(0)]);
+    if (caps.gate) {
+      set(`${root}/gate/on`, [oscInt(0)]);
+      set(`${root}/gate/mode`, [oscInt(0)]);
+      set(`${root}/gate/thr`, [oscFloat(0.5)]);
+      set(`${root}/gate/range`, [oscFloat(0.5)]);
+      set(`${root}/gate/attack`, [oscFloat(0.1)]);
+      set(`${root}/gate/hold`, [oscFloat(0.5)]);
+      set(`${root}/gate/release`, [oscFloat(0.3)]);
+      set(`${root}/gate/keysrc`, [oscInt(0)]);
+    }
 
-    set(`${root}/dyn/on`, [oscInt(0)]);
-    set(`${root}/dyn/mode`, [oscInt(0)]);
-    set(`${root}/dyn/det`, [oscInt(0)]);
-    set(`${root}/dyn/env`, [oscInt(1)]);
-    set(`${root}/dyn/thr`, [oscFloat(0.5)]);
-    set(`${root}/dyn/ratio`, [oscInt(3)]);
-    set(`${root}/dyn/knee`, [oscFloat(0.5)]);
-    set(`${root}/dyn/mgain`, [oscFloat(0)]);
-    set(`${root}/dyn/attack`, [oscFloat(0.1)]);
-    set(`${root}/dyn/hold`, [oscFloat(0.5)]);
-    set(`${root}/dyn/release`, [oscFloat(0.3)]);
-    set(`${root}/dyn/pos`, [oscInt(1)]);
-    set(`${root}/dyn/keysrc`, [oscInt(0)]);
-    set(`${root}/dyn/mix`, [oscFloat(1)]);
+    if (caps.dyn) {
+      set(`${root}/dyn/on`, [oscInt(0)]);
+      set(`${root}/dyn/mode`, [oscInt(0)]);
+      set(`${root}/dyn/det`, [oscInt(0)]);
+      set(`${root}/dyn/env`, [oscInt(1)]);
+      set(`${root}/dyn/thr`, [oscFloat(0.5)]);
+      set(`${root}/dyn/ratio`, [oscInt(3)]);
+      set(`${root}/dyn/knee`, [oscFloat(0.5)]);
+      set(`${root}/dyn/mgain`, [oscFloat(0)]);
+      set(`${root}/dyn/attack`, [oscFloat(0.1)]);
+      set(`${root}/dyn/hold`, [oscFloat(0.5)]);
+      set(`${root}/dyn/release`, [oscFloat(0.3)]);
+      set(`${root}/dyn/pos`, [oscInt(1)]);
+      set(`${root}/dyn/keysrc`, [oscInt(0)]);
+      set(`${root}/dyn/mix`, [oscFloat(1)]);
+    }
 
-    set(`${root}/eq/on`, [oscInt(1)]);
-    const bandDefaults = [100, 500, 2000, 8000];
-    bandDefaults.forEach((hz, index) => {
-      const band = index + 1;
-      set(`${root}/eq/${band}/type`, [oscInt(3)]);
-      set(`${root}/eq/${band}/f`, [oscFloat(eqFreqToFloat(hz))]);
-      set(`${root}/eq/${band}/g`, [oscFloat(0.5)]);
-      set(`${root}/eq/${band}/q`, [oscFloat(0.5)]);
-    });
+    if (caps.eqBands > 0) {
+      set(`${root}/eq/on`, [oscInt(1)]);
+      // Spread the default bands across the spectrum, as a fresh scene does.
+      const defaults = [100, 250, 800, 2500, 6300, 12500];
+      for (let band = 1; band <= caps.eqBands; band += 1) {
+        set(`${root}/eq/${band}/type`, [oscInt(2)]);
+        set(`${root}/eq/${band}/f`, [
+          oscFloat(eqFreqToFloat(defaults[band - 1])),
+        ]);
+        set(`${root}/eq/${band}/g`, [oscFloat(0.5)]);
+        set(`${root}/eq/${band}/q`, [oscFloat(0.5)]);
+      }
+    }
   }
 }

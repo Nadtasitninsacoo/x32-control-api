@@ -1,0 +1,1630 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/consoles": {
+      "get": {
+        "operationId": "ConsoleController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsoleStatusDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the consoles this API is managing",
+        "tags": [
+          "consoles"
+        ]
+      },
+      "post": {
+        "description": "Opens the link, identifies the console and starts mirroring its state. The surface of the mirror is filled before this returns; the rest streams in behind it.",
+        "operationId": "ConsoleController_connect",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectConsoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleInfoDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A console is already connected under this id."
+          },
+          "503": {
+            "description": "The console did not answer."
+          }
+        },
+        "summary": "Connect to a console",
+        "tags": [
+          "consoles"
+        ]
+      }
+    },
+    "/api/consoles/discover": {
+      "post": {
+        "description": "Broadcasts `/info` and collects whoever answers. Broadcast does not cross a Docker bridge network or most VPNs — set the console address explicitly when it does not.",
+        "operationId": "ConsoleController_discover",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverConsolesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiscoveredConsoleDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find consoles on the network",
+        "tags": [
+          "consoles"
+        ]
+      }
+    },
+    "/api/consoles/{id}": {
+      "get": {
+        "operationId": "ConsoleController_status",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleStatusDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No console with this id."
+          }
+        },
+        "summary": "Status of one console",
+        "tags": [
+          "consoles"
+        ]
+      },
+      "delete": {
+        "description": "Closes the link and drops its mirror. The console itself is untouched.",
+        "operationId": "ConsoleController_disconnect",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Disconnect a console",
+        "tags": [
+          "consoles"
+        ]
+      }
+    },
+    "/api/consoles/{id}/resync": {
+      "post": {
+        "description": "Rarely needed — the parameter feed keeps the mirror current on its own. Useful after a scene recall on the surface, or to check whether this firmware prints `/node` the way the schema expects.",
+        "operationId": "ConsoleController_resync",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "depth",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "surface",
+                "sends",
+                "full"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncReportDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No console with this id."
+          }
+        },
+        "summary": "Re-read the console into the mirror",
+        "tags": [
+          "consoles"
+        ]
+      }
+    },
+    "/api/consoles/{id}/state": {
+      "get": {
+        "description": "Every mirrored address under a prefix, in API units. A troubleshooting view — the strip endpoints are the ones to build on.",
+        "operationId": "ConsoleController_state",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "prefix",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "/ch/01",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "example": {
+                    "/ch/01/mix/fader": -6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Raw contents of the state mirror",
+        "tags": [
+          "consoles"
+        ]
+      }
+    },
+    "/api/consoles/{consoleId}/strips": {
+      "get": {
+        "description": "Name, colour, fader and mute for all 32 channels, 8 aux inputs, 8 FX returns, 16 buses, 6 matrices, both mains and 8 DCAs — enough to draw a surface.",
+        "operationId": "MixerController_list",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StripSummaryDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No console with this id."
+          },
+          "503": {
+            "description": "The console is not connected."
+          }
+        },
+        "summary": "List every strip",
+        "tags": [
+          "mixer"
+        ]
+      }
+    },
+    "/api/consoles/{consoleId}/strips/{kind}/{index}": {
+      "get": {
+        "description": "Everything the strip has: config, mix, sends, preamp, gate, dynamics and EQ — in dB, Hz, ms and percent. Sections the strip does not have are omitted.",
+        "operationId": "MixerController_get",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "ch",
+                "auxin",
+                "fxrtn",
+                "bus",
+                "mtx",
+                "main",
+                "dca"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "index",
+            "required": true,
+            "in": "path",
+            "description": "Strip number (`1` or `01`), or `st`/`lr`/`m` for the mains.",
+            "schema": {
+              "example": "1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No such strip on this console."
+          }
+        },
+        "summary": "Read one strip in full",
+        "tags": [
+          "mixer"
+        ]
+      },
+      "patch": {
+        "description": "Only the fields present are written; everything else is left alone. Values are rejected if they fall outside what the console can actually do, rather than being clamped silently. A fader move here is immediate — use a venue preset when a ramp is wanted instead of a jump.",
+        "operationId": "MixerController_update",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "index",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStripDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The strip after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value is out of range, or the strip lacks that section."
+          },
+          "503": {
+            "description": "The console is not connected."
+          }
+        },
+        "summary": "Change part of a strip",
+        "tags": [
+          "mixer"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Cheap enough for a load balancer; useful enough for a wall display.",
+        "operationId": "HealthController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness and console link summary",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "x32-control-api",
+    "description": "Control API for Behringer X32 / Midas M32 consoles over OSC.\n\nEvery value in this API is in engineering units — dB, Hz, milliseconds, percent —\nand every field name carries its unit. The console's raw 0.0–1.0 floats never\ncross this boundary.\n\nTwo conventions worth knowing before wiring a UI to it:\n- `muted` is what it says; the console itself stores the inverse (`/mix/on`).\n- A fader at -90 dB is -∞, i.e. fully closed.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "consoles",
+      "description": "Find consoles, connect to them, inspect the state mirror"
+    },
+    {
+      "name": "mixer",
+      "description": "Channels, buses, matrices, mains and DCAs"
+    },
+    {
+      "name": "health",
+      "description": "Liveness"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "ConsoleInfoDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "example": "192.168.1.10"
+          },
+          "port": {
+            "type": "number",
+            "example": 10023
+          },
+          "serverVersion": {
+            "type": "string",
+            "example": "V2.07",
+            "description": "OSC server version."
+          },
+          "name": {
+            "type": "string",
+            "example": "FOH-X32"
+          },
+          "model": {
+            "type": "string",
+            "example": "X32",
+            "description": "X32, X32C, M32, …"
+          },
+          "firmware": {
+            "type": "string",
+            "example": "4.06"
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "serverVersion",
+          "name",
+          "model",
+          "firmware"
+        ]
+      },
+      "ConsoleStatusDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "default"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "disconnected",
+              "connecting",
+              "syncing",
+              "connected",
+              "reconnecting"
+            ],
+            "example": "connected"
+          },
+          "host": {
+            "type": "string",
+            "example": "192.168.1.10"
+          },
+          "port": {
+            "type": "number",
+            "example": 10023
+          },
+          "info": {
+            "$ref": "#/components/schemas/ConsoleInfoDto"
+          },
+          "cachedAddresses": {
+            "type": "number",
+            "example": 1247,
+            "description": "Parameters currently mirrored."
+          },
+          "lastSyncAt": {
+            "type": "number",
+            "example": 1738000000000,
+            "description": "Epoch ms of the last full sync."
+          },
+          "lastFeedAt": {
+            "type": "number",
+            "example": 1738000004000,
+            "description": "Epoch ms of the last message from the parameter feed."
+          },
+          "missedProbes": {
+            "type": "number",
+            "example": 0,
+            "description": "Consecutive unanswered liveness probes."
+          },
+          "reconnectAttempts": {
+            "type": "number",
+            "example": 0
+          },
+          "dryRun": {
+            "type": "boolean",
+            "example": false,
+            "description": "When true, state-changing OSC is logged instead of sent."
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "host",
+          "port",
+          "cachedAddresses",
+          "missedProbes",
+          "reconnectAttempts",
+          "dryRun"
+        ]
+      },
+      "DiscoverConsolesDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "example": "255.255.255.255",
+            "description": "Where to send the probe. Defaults to OSC_BROADCAST_ADDRESS."
+          },
+          "port": {
+            "type": "number",
+            "example": 10023
+          },
+          "timeoutMs": {
+            "type": "number",
+            "example": 1500,
+            "description": "How long to listen for answers, in ms."
+          }
+        }
+      },
+      "DiscoveredConsoleDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "example": "192.168.1.10"
+          },
+          "port": {
+            "type": "number",
+            "example": 10023
+          },
+          "serverVersion": {
+            "type": "string",
+            "example": "V2.07",
+            "description": "OSC server version."
+          },
+          "name": {
+            "type": "string",
+            "example": "FOH-X32"
+          },
+          "model": {
+            "type": "string",
+            "example": "X32",
+            "description": "X32, X32C, M32, …"
+          },
+          "firmware": {
+            "type": "string",
+            "example": "4.06"
+          },
+          "rttMs": {
+            "type": "number",
+            "example": 12,
+            "description": "How long the console took to answer, in ms."
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "serverVersion",
+          "name",
+          "model",
+          "firmware",
+          "rttMs"
+        ]
+      },
+      "ConnectConsoleDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "example": "192.168.1.10",
+            "description": "Console IP address or hostname."
+          },
+          "port": {
+            "type": "number",
+            "example": 10023,
+            "default": 10023
+          },
+          "id": {
+            "type": "string",
+            "example": "foh",
+            "description": "Id to address this console by. Defaults to \"default\" for the first one."
+          }
+        },
+        "required": [
+          "host"
+        ]
+      },
+      "SyncReportDto": {
+        "type": "object",
+        "properties": {
+          "depth": {
+            "type": "string",
+            "enum": [
+              "surface",
+              "sends",
+              "full"
+            ],
+            "example": "surface"
+          },
+          "queries": {
+            "type": "number",
+            "example": 160
+          },
+          "applied": {
+            "type": "number",
+            "example": 812,
+            "description": "Parameters written into the mirror."
+          },
+          "unparsed": {
+            "example": [],
+            "description": "Containers whose dump did not match the schema and were re-read one parameter at a time. A non-empty list means this firmware prints a container differently than expected — worth reporting.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fallbackReads": {
+            "type": "number",
+            "example": 0
+          },
+          "failed": {
+            "type": "number",
+            "example": 0,
+            "description": "Queries the console never answered."
+          },
+          "durationMs": {
+            "type": "number",
+            "example": 3120
+          }
+        },
+        "required": [
+          "depth",
+          "queries",
+          "applied",
+          "unparsed",
+          "fallbackReads",
+          "failed",
+          "durationMs"
+        ]
+      },
+      "StripSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "ch/01"
+          },
+          "kind": {
+            "type": "string",
+            "example": "ch"
+          },
+          "index": {
+            "type": "string",
+            "example": "01"
+          },
+          "name": {
+            "type": "string",
+            "example": "Kick In"
+          },
+          "color": {
+            "type": "string",
+            "example": "GN"
+          },
+          "faderDb": {
+            "type": "number",
+            "example": -6
+          },
+          "muted": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "index",
+          "name",
+          "color",
+          "faderDb",
+          "muted"
+        ]
+      },
+      "StripConfigDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Kick In",
+            "description": "Scribble strip name."
+          },
+          "icon": {
+            "type": "number",
+            "example": 1,
+            "description": "Console icon index."
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "RD",
+              "GN",
+              "YE",
+              "BL",
+              "MG",
+              "CY",
+              "WH",
+              "OFFi",
+              "RDi",
+              "GNi",
+              "YEi",
+              "BLi",
+              "MGi",
+              "CYi",
+              "WHi"
+            ],
+            "example": "GN"
+          },
+          "source": {
+            "type": "number",
+            "example": 1,
+            "description": "Input source index. Channels and aux inputs only."
+          }
+        },
+        "required": [
+          "name",
+          "icon",
+          "color"
+        ]
+      },
+      "StripMixDto": {
+        "type": "object",
+        "properties": {
+          "muted": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when the strip is muted. The console stores the inverse."
+          },
+          "faderDb": {
+            "type": "number",
+            "example": -6,
+            "minimum": -90,
+            "maximum": 10,
+            "description": "Fader position in dB. -90 is -∞."
+          },
+          "pan": {
+            "type": "number",
+            "example": 0,
+            "minimum": -100,
+            "maximum": 100,
+            "description": "Pan, L-100 … R+100."
+          },
+          "stereo": {
+            "type": "boolean",
+            "example": true,
+            "description": "Assigned to the stereo main."
+          },
+          "mono": {
+            "type": "boolean",
+            "example": false,
+            "description": "Assigned to the mono main."
+          },
+          "monoLevelDb": {
+            "type": "number",
+            "example": -90,
+            "description": "Send level to the mono main, in dB."
+          }
+        },
+        "required": [
+          "muted",
+          "faderDb",
+          "pan"
+        ]
+      },
+      "SendDto": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "number",
+            "example": 3,
+            "description": "Destination bus (or matrix) number."
+          },
+          "on": {
+            "type": "boolean",
+            "example": true
+          },
+          "levelDb": {
+            "type": "number",
+            "example": -12,
+            "description": "Send level in dB."
+          },
+          "pan": {
+            "type": "number",
+            "example": 0,
+            "description": "Send pan, where the destination is stereo."
+          }
+        },
+        "required": [
+          "to",
+          "on",
+          "levelDb"
+        ]
+      },
+      "PreampDto": {
+        "type": "object",
+        "properties": {
+          "trimDb": {
+            "type": "number",
+            "example": 0,
+            "minimum": -18,
+            "maximum": 18,
+            "description": "Digital trim in dB."
+          },
+          "invert": {
+            "type": "boolean",
+            "example": false,
+            "description": "Polarity invert."
+          },
+          "lowCutOn": {
+            "type": "boolean",
+            "example": true,
+            "description": "Low-cut filter engaged."
+          },
+          "lowCutHz": {
+            "type": "number",
+            "example": 80,
+            "minimum": 20,
+            "maximum": 400,
+            "description": "Low-cut corner in Hz."
+          },
+          "gainDb": {
+            "type": "number",
+            "example": 24,
+            "minimum": -12,
+            "maximum": 60,
+            "description": "Head amp gain in dB. Channels fed by a local XLR input only."
+          },
+          "phantom": {
+            "type": "boolean",
+            "example": false,
+            "description": "+48V phantom power."
+          }
+        },
+        "required": [
+          "trimDb",
+          "invert",
+          "lowCutOn",
+          "lowCutHz"
+        ]
+      },
+      "GateDto": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "example": false
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "GATE",
+              "EXP2",
+              "EXP3",
+              "EXP4",
+              "DUCK"
+            ],
+            "example": "GATE"
+          },
+          "thresholdDb": {
+            "type": "number",
+            "example": -40,
+            "minimum": -80,
+            "maximum": 0,
+            "description": "Threshold in dB."
+          },
+          "rangeDb": {
+            "type": "number",
+            "example": 24,
+            "minimum": 3,
+            "maximum": 60,
+            "description": "Attenuation depth in dB."
+          },
+          "attackMs": {
+            "type": "number",
+            "example": 10,
+            "minimum": 0,
+            "maximum": 120
+          },
+          "holdMs": {
+            "type": "number",
+            "example": 50,
+            "minimum": 0.02,
+            "maximum": 2000
+          },
+          "releaseMs": {
+            "type": "number",
+            "example": 250,
+            "minimum": 5,
+            "maximum": 4000
+          }
+        },
+        "required": [
+          "on",
+          "mode",
+          "thresholdDb",
+          "rangeDb",
+          "attackMs",
+          "holdMs",
+          "releaseMs"
+        ]
+      },
+      "DynamicsDto": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "example": true
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "COMP",
+              "EXP"
+            ],
+            "example": "COMP"
+          },
+          "detection": {
+            "type": "string",
+            "enum": [
+              "PEAK",
+              "RMS"
+            ],
+            "example": "RMS"
+          },
+          "envelope": {
+            "type": "string",
+            "enum": [
+              "LIN",
+              "LOG"
+            ],
+            "example": "LOG"
+          },
+          "thresholdDb": {
+            "type": "number",
+            "example": -18,
+            "minimum": -60,
+            "maximum": 0,
+            "description": "Threshold in dB."
+          },
+          "ratio": {
+            "type": "number",
+            "enum": [
+              1.1,
+              1.3,
+              1.5,
+              2,
+              2.5,
+              3,
+              4,
+              5,
+              7,
+              10,
+              20,
+              100
+            ],
+            "example": 4,
+            "description": "Ratio. Values off this list snap to the nearest the console offers."
+          },
+          "knee": {
+            "type": "number",
+            "example": 2.5,
+            "minimum": 0,
+            "maximum": 5
+          },
+          "makeupGainDb": {
+            "type": "number",
+            "example": 3,
+            "minimum": 0,
+            "maximum": 24,
+            "description": "Make-up gain in dB."
+          },
+          "attackMs": {
+            "type": "number",
+            "example": 10,
+            "minimum": 0,
+            "maximum": 120
+          },
+          "holdMs": {
+            "type": "number",
+            "example": 50,
+            "minimum": 0.02,
+            "maximum": 2000
+          },
+          "releaseMs": {
+            "type": "number",
+            "example": 150,
+            "minimum": 5,
+            "maximum": 4000
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "PRE",
+              "POST"
+            ],
+            "example": "POST"
+          },
+          "mixPercent": {
+            "type": "number",
+            "example": 100,
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Wet/dry mix in percent."
+          }
+        },
+        "required": [
+          "on",
+          "mode",
+          "detection",
+          "envelope",
+          "thresholdDb",
+          "ratio",
+          "knee",
+          "makeupGainDb",
+          "attackMs",
+          "holdMs",
+          "releaseMs",
+          "position",
+          "mixPercent"
+        ]
+      },
+      "EqBandDto": {
+        "type": "object",
+        "properties": {
+          "band": {
+            "type": "number",
+            "example": 2,
+            "description": "Band number, 1-based."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LCut",
+              "LShv",
+              "PEQ",
+              "VEQ",
+              "HShv",
+              "HCut"
+            ],
+            "example": "PEQ"
+          },
+          "frequencyHz": {
+            "type": "number",
+            "example": 1000,
+            "minimum": 20,
+            "maximum": 20000
+          },
+          "gainDb": {
+            "type": "number",
+            "example": -4.5,
+            "minimum": -15,
+            "maximum": 15
+          },
+          "q": {
+            "type": "number",
+            "example": 2,
+            "minimum": 0.3,
+            "maximum": 10,
+            "description": "Bandwidth. Higher is narrower."
+          }
+        },
+        "required": [
+          "band",
+          "type",
+          "frequencyHz",
+          "gainDb",
+          "q"
+        ]
+      },
+      "EqDto": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "example": true
+          },
+          "bands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EqBandDto"
+            }
+          }
+        },
+        "required": [
+          "on",
+          "bands"
+        ]
+      },
+      "StripDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "ch/01",
+            "description": "Strip id, as used in URLs."
+          },
+          "kind": {
+            "type": "string",
+            "example": "ch",
+            "enum": [
+              "ch",
+              "auxin",
+              "fxrtn",
+              "bus",
+              "mtx",
+              "main",
+              "dca"
+            ]
+          },
+          "index": {
+            "type": "string",
+            "example": "01"
+          },
+          "oscRoot": {
+            "type": "string",
+            "example": "/ch/01",
+            "description": "OSC root, for troubleshooting."
+          },
+          "config": {
+            "$ref": "#/components/schemas/StripConfigDto"
+          },
+          "mix": {
+            "$ref": "#/components/schemas/StripMixDto"
+          },
+          "sends": {
+            "description": "Bus sends, or matrix sends on a bus.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SendDto"
+            }
+          },
+          "preamp": {
+            "$ref": "#/components/schemas/PreampDto"
+          },
+          "gate": {
+            "$ref": "#/components/schemas/GateDto"
+          },
+          "dynamics": {
+            "$ref": "#/components/schemas/DynamicsDto"
+          },
+          "eq": {
+            "$ref": "#/components/schemas/EqDto"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "index",
+          "oscRoot",
+          "config",
+          "mix"
+        ]
+      },
+      "UpdateStripConfigDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Kick In",
+            "maxLength": 12
+          },
+          "icon": {
+            "type": "number",
+            "example": 1
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "RD",
+              "GN",
+              "YE",
+              "BL",
+              "MG",
+              "CY",
+              "WH",
+              "OFFi",
+              "RDi",
+              "GNi",
+              "YEi",
+              "BLi",
+              "MGi",
+              "CYi",
+              "WHi"
+            ],
+            "example": "GN"
+          },
+          "source": {
+            "type": "number",
+            "example": 1,
+            "description": "Input source index."
+          }
+        }
+      },
+      "UpdateStripMixDto": {
+        "type": "object",
+        "properties": {
+          "muted": {
+            "type": "boolean",
+            "example": true
+          },
+          "faderDb": {
+            "type": "number",
+            "example": -6,
+            "minimum": -90,
+            "maximum": 10
+          },
+          "pan": {
+            "type": "number",
+            "example": -35,
+            "minimum": -100,
+            "maximum": 100
+          },
+          "stereo": {
+            "type": "boolean",
+            "example": true
+          },
+          "mono": {
+            "type": "boolean",
+            "example": false
+          },
+          "monoLevelDb": {
+            "type": "number",
+            "example": -10,
+            "minimum": -90,
+            "maximum": 10
+          }
+        }
+      },
+      "UpdateSendDto": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "number",
+            "example": 3,
+            "description": "Destination bus or matrix number."
+          },
+          "on": {
+            "type": "boolean",
+            "example": true
+          },
+          "levelDb": {
+            "type": "number",
+            "example": -12,
+            "minimum": -90,
+            "maximum": 10
+          },
+          "pan": {
+            "type": "number",
+            "example": 0,
+            "minimum": -100,
+            "maximum": 100
+          }
+        }
+      },
+      "UpdatePreampDto": {
+        "type": "object",
+        "properties": {
+          "trimDb": {
+            "type": "number",
+            "example": 0,
+            "minimum": -18,
+            "maximum": 18
+          },
+          "invert": {
+            "type": "boolean",
+            "example": false
+          },
+          "lowCutOn": {
+            "type": "boolean",
+            "example": true
+          },
+          "lowCutHz": {
+            "type": "number",
+            "example": 80,
+            "minimum": 20,
+            "maximum": 400
+          },
+          "gainDb": {
+            "type": "number",
+            "example": 24,
+            "minimum": -12,
+            "maximum": 60,
+            "description": "Head amp gain. Channels on a local input only."
+          },
+          "phantom": {
+            "type": "boolean",
+            "example": false,
+            "description": "+48V phantom power."
+          }
+        }
+      },
+      "UpdateGateDto": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "example": true
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "GATE",
+              "EXP2",
+              "EXP3",
+              "EXP4",
+              "DUCK"
+            ]
+          },
+          "thresholdDb": {
+            "type": "number",
+            "example": -40,
+            "minimum": -80,
+            "maximum": 0
+          },
+          "rangeDb": {
+            "type": "number",
+            "example": 24,
+            "minimum": 3,
+            "maximum": 60
+          },
+          "attackMs": {
+            "type": "number",
+            "example": 10,
+            "minimum": 0,
+            "maximum": 120
+          },
+          "holdMs": {
+            "type": "number",
+            "example": 50,
+            "minimum": 0.02,
+            "maximum": 2000
+          },
+          "releaseMs": {
+            "type": "number",
+            "example": 250,
+            "minimum": 5,
+            "maximum": 4000
+          }
+        }
+      },
+      "UpdateDynamicsDto": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "example": true
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "COMP",
+              "EXP"
+            ]
+          },
+          "detection": {
+            "type": "string",
+            "enum": [
+              "PEAK",
+              "RMS"
+            ]
+          },
+          "envelope": {
+            "type": "string",
+            "enum": [
+              "LIN",
+              "LOG"
+            ]
+          },
+          "thresholdDb": {
+            "type": "number",
+            "example": -18,
+            "minimum": -60,
+            "maximum": 0
+          },
+          "ratio": {
+            "type": "number",
+            "example": 4,
+            "minimum": 1.1,
+            "maximum": 100,
+            "description": "Snapped to the nearest ratio the console offers."
+          },
+          "knee": {
+            "type": "number",
+            "example": 2.5,
+            "minimum": 0,
+            "maximum": 5
+          },
+          "makeupGainDb": {
+            "type": "number",
+            "example": 3,
+            "minimum": 0,
+            "maximum": 24
+          },
+          "attackMs": {
+            "type": "number",
+            "example": 10,
+            "minimum": 0,
+            "maximum": 120
+          },
+          "holdMs": {
+            "type": "number",
+            "example": 50,
+            "minimum": 0.02,
+            "maximum": 2000
+          },
+          "releaseMs": {
+            "type": "number",
+            "example": 150,
+            "minimum": 5,
+            "maximum": 4000
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "PRE",
+              "POST"
+            ]
+          },
+          "mixPercent": {
+            "type": "number",
+            "example": 100,
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "UpdateEqBandDto": {
+        "type": "object",
+        "properties": {
+          "band": {
+            "type": "number",
+            "example": 2,
+            "description": "Band number, 1-based."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LCut",
+              "LShv",
+              "PEQ",
+              "VEQ",
+              "HShv",
+              "HCut"
+            ]
+          },
+          "frequencyHz": {
+            "type": "number",
+            "example": 1000,
+            "minimum": 20,
+            "maximum": 20000
+          },
+          "gainDb": {
+            "type": "number",
+            "example": -4.5,
+            "minimum": -15,
+            "maximum": 15
+          },
+          "q": {
+            "type": "number",
+            "example": 2,
+            "minimum": 0.3,
+            "maximum": 10
+          }
+        }
+      },
+      "UpdateEqDto": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "example": true
+          },
+          "bands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateEqBandDto"
+            }
+          }
+        }
+      },
+      "UpdateStripDto": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/UpdateStripConfigDto"
+          },
+          "mix": {
+            "$ref": "#/components/schemas/UpdateStripMixDto"
+          },
+          "sends": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateSendDto"
+            }
+          },
+          "preamp": {
+            "$ref": "#/components/schemas/UpdatePreampDto"
+          },
+          "gate": {
+            "$ref": "#/components/schemas/UpdateGateDto"
+          },
+          "dynamics": {
+            "$ref": "#/components/schemas/UpdateDynamicsDto"
+          },
+          "eq": {
+            "$ref": "#/components/schemas/UpdateEqDto"
+          }
+        }
+      },
+      "HealthDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "uptimeSeconds": {
+            "type": "number",
+            "example": 42.5,
+            "description": "Process uptime in seconds."
+          },
+          "consoles": {
+            "type": "number",
+            "example": 1,
+            "description": "Consoles currently managed."
+          },
+          "connected": {
+            "type": "number",
+            "example": 1,
+            "description": "Of those, how many are usable right now."
+          },
+          "dryRun": {
+            "type": "boolean",
+            "example": false,
+            "description": "DRY_RUN is on: no state-changing OSC is sent."
+          }
+        },
+        "required": [
+          "status",
+          "uptimeSeconds",
+          "consoles",
+          "connected",
+          "dryRun"
+        ]
+      }
+    }
+  }
+}

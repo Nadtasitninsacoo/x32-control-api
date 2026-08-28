@@ -53,6 +53,21 @@ CREATE TABLE "preset_versions" (
 );
 
 -- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'observer',
+    "displayName" TEXT,
+    "disabled" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastLoginAt" TIMESTAMP(3),
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "audit_entries" (
     "id" TEXT NOT NULL,
     "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -81,6 +96,9 @@ CREATE UNIQUE INDEX "presets_name_venueId_bandId_key" ON "presets"("name", "venu
 
 -- CreateIndex
 CREATE UNIQUE INDEX "preset_versions_presetId_version_key" ON "preset_versions"("presetId", "version");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
 
 -- CreateIndex
 CREATE INDEX "audit_entries_at_idx" ON "audit_entries"("at");

@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiProperty } from '@nestjs/swagger';
+import { Public } from '../auth/auth.decorators.js';
 import { ConsoleManagerService } from '../console/console-manager.service.js';
 
 export class HealthDto {
@@ -32,6 +33,7 @@ export class HealthController {
   constructor(private readonly consoles: ConsoleManagerService) {}
 
   @Get()
+  @Public()
   @ApiOperation({
     summary: 'Liveness and console link summary',
     description:

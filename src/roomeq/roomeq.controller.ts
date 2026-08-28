@@ -12,6 +12,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Roles } from '../auth/auth.decorators.js';
+import { AllowedWhenReadOnly } from '../safety/read-only.guard.js';
 import { ApplyReportDto } from '../scene/dto/scene.dto.js';
 import {
   AnalyzeRoomEqDto,
@@ -46,6 +48,8 @@ export class RoomEqController {
   constructor(private readonly roomEq: RoomEqService) {}
 
   @Post('roomeq/analyze')
+  @Roles('observer')
+  @AllowedWhenReadOnly()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Fit a correction to a room measurement',

@@ -6,11 +6,11 @@ Self-contained: its own `package.json`, `.env`, Dockerfile and git repository. I
 workspace, no shared folder and no dependency on any file outside this directory. A frontend
 talks to it over HTTP/WS only, and learns its types from the exported `openapi.json`.
 
-> **Status — Phases 1–6 of 7 complete.** The OSC core, console management, the mixer REST
-> surface (Swagger + exported `openapi.json`), metering over WebSocket, console scenes with
-> `.scn` import/export, venue presets with fader ramping and version history, and room EQ
-> from a measurement file are done and green, with the X32 emulator behind their tests.
-> Phase 7 (auth and safety) is not built yet. See [Roadmap](#roadmap).
+> **Status — all seven phases complete.** OSC core, console management, mixer REST with
+> Swagger and an exported `openapi.json`, metering over WebSocket, console scenes with `.scn`
+> import/export, venue presets with fader ramping and version history, room EQ from a
+> measurement file, and authentication with the safety layer — all done and green behind the
+> X32 emulator. 325 tests, no hardware and no database required to run them.
 
 ---
 
@@ -242,6 +242,14 @@ Base path `/api`. Interactive docs at `/api/docs`, machine-readable at
 | `POST` | `/api/presets/{id}/rollback` | Make an earlier version current again |
 | `POST` | `/api/roomeq/analyze` | Fit a correction to a measurement — touches no console |
 | `POST` | `/api/consoles/{id}/roomeq/apply` | Write a correction to a strip's EQ |
+| `POST` | `/api/auth/login` | Exchange a username and password for a token |
+| `GET` | `/api/auth/me` | Who this token belongs to |
+| `GET/POST/PATCH/DELETE` | `/api/auth/users` | Account management (admin) |
+| `GET` | `/api/safety` | What protections are currently on |
+| `POST` | `/api/safety/read-only` | Turn read-only mode on or off (admin) |
+| `POST` | `/api/safety/safe-state` | Record the state PANIC returns to |
+| `POST` | `/api/safety/panic` | Put the console back, now |
+| `GET` | `/api/safety/audit` | What this API was asked to do, and by whom |
 
 `kind` is `ch`, `auxin`, `fxrtn`, `bus`, `mtx`, `main` or `dca`. Indices may be padded or not
 (`ch/1` == `ch/01`), and the mains answer to `main/st` (or `main/lr`) and `main/m`.
@@ -407,6 +415,67 @@ whatever effect happens to be loaded in that slot.
 
 ---
 
+## Who may do what, and what stops a bad evening
+
+### Authentication
+
+Off by default. With `AUTH_ENABLED=false` no token is needed and every request runs as an
+administrator — reasonable on a closed show network, wrong on a shared one, and the API says
+which it is doing at boot rather than leaving you to guess.
+
+Turn it on with `AUTH_ENABLED=true`, a long random `JWT_SECRET`, and
+`AUTH_BOOTSTRAP_USERNAME` / `AUTH_BOOTSTRAP_PASSWORD` to create the first administrator.
+Without that bootstrap, switching authentication on would lock everyone out of their own
+console — including the person who has to fix it, five minutes before doors.
+
+| Role | Can |
+| --- | --- |
+| `observer` | See everything. Change nothing. A guest engineer, a promoter, a screen on the wall |
+| `engineer` | Everything above, plus mixing: strips, presets, scenes, room EQ, PANIC |
+| `admin` | Everything above, plus accounts and read-only mode |
+
+**The role a route needs is inferred from its HTTP method** — reads need `observer`, writes
+need `engineer` — unless the route says otherwise. An endpoint added next month is therefore
+protected by default rather than open by default, which is the failure mode that matters when
+the thing on the other end is a PA system. Routes that only calculate (`preview`, `roomeq/analyze`)
+opt back down to `observer` explicitly.
+
+Disabling an account takes effect on the next request, not when its token happens to expire:
+the guard checks storage every time rather than trusting the token's contents.
+
+### DRY_RUN, read-only, and PANIC
+
+Three different protections, because an evening goes wrong in three different ways:
+
+- **`DRY_RUN=true`** — state-changing OSC is logged instead of sent. Queries still work, so a
+  UI still shows real values. For rehearsing a show file, or demonstrating the app while the
+  band is still playing.
+- **Read-only** — `POST /api/safety/read-only`, no restart. Writes are refused with **423
+  Locked** (not 403: the request was fine, the system is deliberately not accepting it), and
+  the refusal carries the reason an admin gave.
+- **PANIC** — `POST /api/safety/panic`. No ramp, no confirmation. Either restores what was
+  captured as the safe state, or `mode: "mute-all"` mutes every strip and needs nothing
+  captured beforehand.
+
+**PANIC works while read-only is on**, deliberately: read-only exists to prevent an accident,
+PANIC exists to end one.
+
+The safe state is stored as an ordinary venue preset, so it is versioned and can be inspected
+before anyone has to trust it — capture it once the room sounds right, before doors.
+
+### The audit trail
+
+Every state-changing request is recorded with who asked, what they asked for, which console,
+and what came back. Reads are not: an audit trail that logs every meter poll is one nobody
+reads, and the question it exists to answer is only ever about writes.
+
+Passwords, tokens and confirmation strings are redacted; scene files and measurements are
+recorded as a size rather than a copy. With no `DATABASE_URL` the trail lives in memory —
+`GET /api/safety` says so, because an audit trail that will not survive a restart is worth
+knowing about *before* the show rather than after.
+
+---
+
 ## Environment variables
 
 | Variable | Default | Meaning |
@@ -436,7 +505,12 @@ whatever effect happens to be loaded in that slot.
 | `METER_TIME_FACTOR` | `1` | Console-side meter rate divider; 1 ≈ every 50 ms |
 | `RAMP_DEFAULT_MS` | `400` | Ramp time for level changes |
 | `RAMP_MIN_MS` / `RAMP_MAX_MS` | `300` / `800` | Window a requested ramp is clamped into |
-| `DATABASE_URL` | *(empty)* | PostgreSQL for venue presets. Empty = in-memory, lost on restart |
+| `DATABASE_URL` | *(empty)* | PostgreSQL for presets, users and the audit trail. Empty = in-memory, lost on restart |
+| `AUTH_ENABLED` | `false` | When false, every request runs as an administrator |
+| `JWT_SECRET` | *(empty)* | Signing key. Required once `AUTH_ENABLED` is true |
+| `JWT_EXPIRES_IN_SECONDS` | `43200` | Token lifetime |
+| `AUTH_BOOTSTRAP_USERNAME` / `_PASSWORD` | *(empty)* | Creates the first admin when auth is on and none exist |
+| `READ_ONLY` | `false` | Start in read-only mode; flip at runtime without a restart |
 
 `DATABASE_URL` and `JWT_SECRET` arrive with Phases 5 and 7.
 
@@ -456,7 +530,7 @@ readable message instead of misbehaving on stage.
 | 4 | Metering + WebSocket at 20 fps | **done** |
 | 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | **done** |
 | 6 | RoomEq (REW/CSV import, auto PEQ) | **done** |
-| 7 | Auth (JWT, admin/engineer/observer) + Safety (panic, read-only, audit log) | next |
+| 7 | Auth (JWT, admin/engineer/observer) + Safety (panic, read-only, audit log) | **done** |
 
 Acceptance criteria 3 (set −6 dB, read back −6 dB ±0.1) and 5 (500-command burst, nothing
 dropped) are covered by

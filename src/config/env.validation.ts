@@ -185,6 +185,34 @@ export class EnvVars {
   @Max(99)
   METER_TIME_FACTOR = 1;
 
+  /* --- Authentication --- */
+
+  /**
+   * When false, every request runs as an administrator. That is a reasonable
+   * default on a closed show network and a bad one on a shared one; the API
+   * says which it is doing at boot.
+   */
+  @Transform(toBoolean)
+  @IsBoolean()
+  AUTH_ENABLED = false;
+
+  /** Signing key for access tokens. Required once AUTH_ENABLED is true. */
+  @IsString()
+  JWT_SECRET = '';
+
+  @Transform(toInt)
+  @IsInt()
+  @Min(60)
+  @Max(2_592_000)
+  JWT_EXPIRES_IN_SECONDS = 43_200;
+
+  /** Creates the first administrator when authentication is on and none exist. */
+  @IsString()
+  AUTH_BOOTSTRAP_USERNAME = '';
+
+  @IsString()
+  AUTH_BOOTSTRAP_PASSWORD = '';
+
   /* --- Storage --- */
 
   /**
@@ -226,6 +254,14 @@ export class EnvVars {
   @Transform(toBoolean)
   @IsBoolean()
   DRY_RUN = false;
+
+  /**
+   * Start in read-only mode: reads work, anything that would change the console
+   * is refused with 423 Locked. Can be flipped at runtime without a restart.
+   */
+  @Transform(toBoolean)
+  @IsBoolean()
+  READ_ONLY = false;
 }
 
 export function validateEnv(raw: Record<string, unknown>): EnvVars {

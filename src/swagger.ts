@@ -20,17 +20,37 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
         "and every field name carries its unit. The console's raw 0.0–1.0 floats never",
         'cross this boundary.',
         '',
-        'Two conventions worth knowing before wiring a UI to it:',
+        'Conventions worth knowing before wiring a UI to it:',
         '- `muted` is what it says; the console itself stores the inverse (`/mix/on`).',
         '- A fader at -90 dB is -∞, i.e. fully closed.',
+        '- Values outside what the console can do are rejected, never clamped silently.',
+        '- With `AUTH_ENABLED=false` no token is needed and every request runs as an',
+        '  administrator. With it on, send `Authorization: Bearer <token>` from',
+        '  `POST /api/auth/login`; reads need the `observer` role, writes need `engineer`.',
+        '- A `423 Locked` means read-only mode is on, not that the request was wrong.',
       ].join('\n'),
     )
     .setVersion('0.1.0')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'bearer',
+    )
     .addTag(
       'consoles',
       'Find consoles, connect to them, inspect the state mirror',
     )
     .addTag('mixer', 'Channels, buses, matrices, mains and DCAs')
+    .addTag(
+      'scenes',
+      'Scenes, cues and snippets on the console, and .scn files',
+    )
+    .addTag('venues', 'Rooms, and what was learned about them')
+    .addTag('bands', 'Acts and their input lists')
+    .addTag('presets', 'Saved mixes, versioned and applied by diff')
+    .addTag('room eq', 'Fitting a correction from a measurement')
+    .addTag('metering', 'Meter snapshots and raw banks')
+    .addTag('auth', 'Logging in and managing accounts')
+    .addTag('safety', 'Read-only mode, PANIC, and the audit trail')
     .addTag('health', 'Liveness')
     .build();
 

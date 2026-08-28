@@ -20,6 +20,8 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Roles } from '../auth/auth.decorators.js';
+import { AllowedWhenReadOnly } from '../safety/read-only.guard.js';
 import { ApplyReportDto } from '../scene/dto/scene.dto.js';
 import {
   ApplyInputListDto,
@@ -258,6 +260,8 @@ export class PresetController {
   }
 
   @Post(':id/preview')
+  @Roles('observer')
+  @AllowedWhenReadOnly()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'What applying this preset would change',

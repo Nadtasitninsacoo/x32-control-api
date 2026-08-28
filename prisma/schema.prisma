@@ -88,6 +88,22 @@ model PresetVersion {
   @@map("preset_versions")
 }
 
+/// Someone who can log in. Roles: admin, engineer, observer.
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  /// scrypt$N$r$p$salt$hash — the parameters travel with the hash.
+  passwordHash String
+  role         String   @default("observer")
+  displayName  String?
+  disabled     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastLoginAt  DateTime?
+
+  @@map("users")
+}
+
 /// Every command this API sent to a console, and who asked for it.
 model AuditEntry {
   id        String   @id @default(uuid())

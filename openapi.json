@@ -1562,6 +1562,418 @@
         ]
       }
     },
+    "/api/auth/login": {
+      "post": {
+        "description": "Send the token as `Authorization: Bearer <token>`. When AUTH_ENABLED is false this endpoint is unnecessary — every request already runs as an administrator.",
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong username or password."
+          }
+        },
+        "summary": "Exchange a username and password for a token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrincipalDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Who this token belongs to",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/users": {
+      "get": {
+        "operationId": "AuthController_users",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List accounts",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "admin manages users and safety; engineer mixes; observer sees everything and changes nothing — the role for a guest engineer, a promoter, or a screen on the wall.",
+        "operationId": "AuthController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "That username is taken."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create an account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/users/{id}": {
+      "patch": {
+        "operationId": "AuthController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change a password, a role, or disable an account",
+        "tags": [
+          "auth"
+        ]
+      },
+      "delete": {
+        "description": "Tokens already issued to it stop working immediately.",
+        "operationId": "AuthController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete an account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/safety": {
+      "get": {
+        "description": "Worth putting somewhere visible in a UI: an operator should be able to see at a glance whether their changes are reaching the console at all.",
+        "operationId": "SafetyController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "What protections are currently on",
+        "tags": [
+          "safety"
+        ]
+      }
+    },
+    "/api/safety/read-only": {
+      "post": {
+        "description": "While it is on, anything that would change a console is refused with 423 Locked. Reads, logging in and PANIC keep working.",
+        "operationId": "SafetyController_setReadOnly",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetReadOnlyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Turn read-only mode on or off",
+        "tags": [
+          "safety"
+        ]
+      }
+    },
+    "/api/safety/safe-state": {
+      "post": {
+        "description": "Saved as an ordinary preset, so it is versioned and can be inspected before anybody has to trust it. Capture it once the room sounds right, before doors.",
+        "operationId": "SafetyController_captureSafeState",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureSafeStateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "presetId": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record the console as it stands as the state PANIC returns to",
+        "tags": [
+          "safety"
+        ]
+      }
+    },
+    "/api/safety/panic": {
+      "post": {
+        "description": "No ramp and no confirmation — a ramp is for a musical transition and this is not one. `safe-state` restores what was captured; `mute-all` mutes every strip and needs nothing captured beforehand. Works while read-only is on: read-only prevents accidents, PANIC ends one.",
+        "operationId": "SafetyController_panic",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PanicDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What was restored, and what it changed."
+          },
+          "404": {
+            "description": "No safe state captured for that console."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Put the console back, now",
+        "tags": [
+          "safety"
+        ]
+      }
+    },
+    "/api/safety/audit": {
+      "get": {
+        "description": "Newest first. Only state-changing requests are recorded.",
+        "operationId": "SafetyController_audit",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 100,
+              "example": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "consoleId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "default",
+              "type": "string"
+            }
+          },
+          {
+            "name": "user",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "sam",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "What this API has been asked to do, and by whom",
+        "tags": [
+          "safety"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "description": "Cheap enough for a load balancer; useful enough for a wall display.",
@@ -1588,7 +2000,7 @@
   },
   "info": {
     "title": "x32-control-api",
-    "description": "Control API for Behringer X32 / Midas M32 consoles over OSC.\n\nEvery value in this API is in engineering units — dB, Hz, milliseconds, percent —\nand every field name carries its unit. The console's raw 0.0–1.0 floats never\ncross this boundary.\n\nTwo conventions worth knowing before wiring a UI to it:\n- `muted` is what it says; the console itself stores the inverse (`/mix/on`).\n- A fader at -90 dB is -∞, i.e. fully closed.",
+    "description": "Control API for Behringer X32 / Midas M32 consoles over OSC.\n\nEvery value in this API is in engineering units — dB, Hz, milliseconds, percent —\nand every field name carries its unit. The console's raw 0.0–1.0 floats never\ncross this boundary.\n\nConventions worth knowing before wiring a UI to it:\n- `muted` is what it says; the console itself stores the inverse (`/mix/on`).\n- A fader at -90 dB is -∞, i.e. fully closed.\n- Values outside what the console can do are rejected, never clamped silently.\n- With `AUTH_ENABLED=false` no token is needed and every request runs as an\n  administrator. With it on, send `Authorization: Bearer <token>` from\n  `POST /api/auth/login`; reads need the `observer` role, writes need `engineer`.\n- A `423 Locked` means read-only mode is on, not that the request was wrong.",
     "version": "0.1.0",
     "contact": {}
   },
@@ -1602,12 +2014,51 @@
       "description": "Channels, buses, matrices, mains and DCAs"
     },
     {
+      "name": "scenes",
+      "description": "Scenes, cues and snippets on the console, and .scn files"
+    },
+    {
+      "name": "venues",
+      "description": "Rooms, and what was learned about them"
+    },
+    {
+      "name": "bands",
+      "description": "Acts and their input lists"
+    },
+    {
+      "name": "presets",
+      "description": "Saved mixes, versioned and applied by diff"
+    },
+    {
+      "name": "room eq",
+      "description": "Fitting a correction from a measurement"
+    },
+    {
+      "name": "metering",
+      "description": "Meter snapshots and raw banks"
+    },
+    {
+      "name": "auth",
+      "description": "Logging in and managing accounts"
+    },
+    {
+      "name": "safety",
+      "description": "Read-only mode, PANIC, and the audit trail"
+    },
+    {
       "name": "health",
       "description": "Liveness"
     }
   ],
   "servers": [],
   "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
     "schemas": {
       "ConsoleInfoDto": {
         "type": "object",
@@ -3836,6 +4287,315 @@
         },
         "required": [
           "strip"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "sam"
+          },
+          "password": {
+            "type": "string",
+            "example": "correct horse battery staple"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "PrincipalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string",
+            "example": "sam"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "engineer",
+              "observer"
+            ],
+            "example": "engineer"
+          },
+          "displayName": {
+            "type": "object",
+            "example": "Sam at FOH"
+          },
+          "anonymous": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when authentication is off and this is the stand-in principal."
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "role"
+        ]
+      },
+      "LoginResultDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "Send as `Authorization: Bearer <token>`."
+          },
+          "expiresIn": {
+            "type": "number",
+            "example": 43200,
+            "description": "Token lifetime in seconds."
+          },
+          "user": {
+            "$ref": "#/components/schemas/PrincipalDto"
+          }
+        },
+        "required": [
+          "accessToken",
+          "expiresIn",
+          "user"
+        ]
+      },
+      "UserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string",
+            "example": "sam"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "engineer",
+              "observer"
+            ]
+          },
+          "displayName": {
+            "type": "object"
+          },
+          "disabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "type": "object",
+            "description": "When this account last signed in."
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "role",
+          "disabled",
+          "createdAt"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "sam"
+          },
+          "password": {
+            "type": "string",
+            "example": "correct horse battery staple",
+            "description": "At least 10 characters. This unlocks a PA system."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "engineer",
+              "observer"
+            ],
+            "example": "engineer",
+            "description": "admin manages users and safety; engineer mixes; observer can see everything and change nothing."
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Sam at FOH"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "role"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "example": "a new long password"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "engineer",
+              "observer"
+            ]
+          },
+          "disabled": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "SafetyStatusDto": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean",
+            "example": false,
+            "description": "State-changing OSC is logged instead of sent. Set with DRY_RUN."
+          },
+          "readOnly": {
+            "type": "boolean",
+            "example": false,
+            "description": "Writes are refused with 423 Locked."
+          },
+          "readOnlyReason": {
+            "type": "string",
+            "example": "guest engineer driving"
+          },
+          "authEnabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "auditStorage": {
+            "type": "string",
+            "enum": [
+              "memory",
+              "postgres"
+            ],
+            "example": "memory",
+            "description": "Where the audit trail goes. In memory, it does not survive a restart."
+          },
+          "consolesWithSafeState": {
+            "example": [
+              "default"
+            ],
+            "description": "Consoles that have a safe state captured and can be recovered by PANIC.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "dryRun",
+          "readOnly",
+          "authEnabled",
+          "auditStorage",
+          "consolesWithSafeState"
+        ]
+      },
+      "SetReadOnlyDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "reason": {
+            "type": "string",
+            "example": "guest engineer driving",
+            "description": "Shown to anyone whose write is refused."
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "CaptureSafeStateDto": {
+        "type": "object",
+        "properties": {
+          "consoleId": {
+            "type": "string",
+            "example": "default"
+          }
+        },
+        "required": [
+          "consoleId"
+        ]
+      },
+      "PanicDto": {
+        "type": "object",
+        "properties": {
+          "consoleId": {
+            "type": "string",
+            "example": "default"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "safe-state",
+              "mute-all"
+            ],
+            "default": "safe-state",
+            "description": "`safe-state` restores what was captured as safe; `mute-all` mutes every strip, which needs nothing captured beforehand."
+          }
+        },
+        "required": [
+          "consoleId"
+        ]
+      },
+      "AuditEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "user": {
+            "type": "object",
+            "example": "sam"
+          },
+          "action": {
+            "type": "string",
+            "example": "PATCH /api/consoles/default/strips/ch/1"
+          },
+          "consoleId": {
+            "type": "object",
+            "example": "default"
+          },
+          "detail": {
+            "type": "object",
+            "example": {
+              "mix": "{\"faderDb\":-6}",
+              "outcome": {
+                "changed": 1,
+                "messages": 1
+              }
+            },
+            "description": "Request summary and what it changed. Secrets are redacted, bulk is elided."
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "action"
         ]
       },
       "HealthDto": {

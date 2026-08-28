@@ -6,10 +6,10 @@ Self-contained: its own `package.json`, `.env`, Dockerfile and git repository. I
 workspace, no shared folder and no dependency on any file outside this directory. A frontend
 talks to it over HTTP/WS only, and learns its types from the exported `openapi.json`.
 
-> **Status — Phases 1–3 of 7 complete.** The OSC core, console management and the mixer
-> REST surface (with Swagger and an exported `openapi.json`) are done and green, with the
-> X32 emulator behind their tests. Phases 4–7 (metering/WebSocket, scenes, venue presets,
-> room EQ, auth/safety) are not built yet. See [Roadmap](#roadmap).
+> **Status — Phases 1–4 of 7 complete.** The OSC core, console management, the mixer REST
+> surface (Swagger + exported `openapi.json`) and metering over WebSocket are done and
+> green, with the X32 emulator behind their tests. Phases 5–7 (scenes, venue presets, room
+> EQ, auth/safety) are not built yet. See [Roadmap](#roadmap).
 
 ---
 
@@ -225,6 +225,8 @@ Base path `/api`. Interactive docs at `/api/docs`, machine-readable at
 | `GET` | `/api/consoles/{id}/strips` | All 80 strips: name, colour, fader, mute |
 | `GET` | `/api/consoles/{id}/strips/{kind}/{index}` | One strip in full |
 | `PATCH` | `/api/consoles/{id}/strips/{kind}/{index}` | Change part of a strip |
+| `GET` | `/api/consoles/{id}/meters` | Latest meter frame (a snapshot; use the socket to draw) |
+| `GET` | `/api/consoles/{id}/meters/raw` | One meter bank, unmapped — the calibration tool |
 
 `kind` is `ch`, `auxin`, `fxrtn`, `bus`, `mtx`, `main` or `dca`. Indices may be padded or not
 (`ch/1` == `ch/01`), and the mains answer to `main/st` (or `main/lr`) and `main/m`.
@@ -246,6 +248,49 @@ Three things this layer refuses to do quietly:
 Reads are served from the state mirror, so they cost nothing on the wire and reflect moves
 made on the physical surface. Writes go out immediately and are applied to the mirror
 optimistically; the console's own echo confirms them milliseconds later.
+
+---
+
+## Metering and the WebSocket stream
+
+Socket.IO namespace **`/realtime`**. Two streams, both opt-in per client:
+
+```js
+const socket = io('http://localhost:3000/realtime');
+
+socket.on('hello', ({ consoles, streams, meterFps }) => { /* what is available */ });
+
+await socket.emitWithAck('subscribe', { consoleId: 'default', streams: ['meters', 'state'] });
+
+socket.on('meters', ({ channels, mains, at }) => { /* dBFS, 20 fps */ });
+socket.on('state',  ({ changes }) => { /* [{ address, value }], batched */ });
+socket.on('console', ({ state }) => { /* connected / reconnecting / ... */ });
+```
+
+- **Meters are coalesced, never queued.** The console can push far faster than any UI can
+  draw; the newest values are kept and published on a fixed tick, so a slow client sees
+  current meters instead of a growing backlog of stale ones. `METER_FPS` sets the tick.
+- **Parameter changes are batched on the same tick and keyed by address.** Recalling a scene
+  changes hundreds of values at once, and riding a fader produces one update per tick rather
+  than sixty — a client gets one message either way.
+- **The console is only asked for meters while someone is listening.** Subscriptions are
+  reference-counted across clients, and dropped when the last listener leaves.
+- **`/unsubscribe` is never sent.** On the X32 it drops *every* subscription for the socket,
+  including the `/xremote` feed the entire state mirror depends on. Meter subscriptions are
+  stopped by simply not renewing them, and the console forgets us within ten seconds.
+
+### What the meter slots mean, and what is still unknown
+
+Each bank arrives as a flat array of numbers with no labels. The bank addresses and their
+sample counts are well established; exactly which slot carries which strip is documented only
+unofficially and is **not verified against hardware here**. So this project maps only the
+leading segment of each bank — `/meters/1` slots 0–31 are input channels 1–32, `/meters/13`
+slots 0–2 are main L, R and mono — and leaves the rest alone rather than inventing a mapping.
+
+`GET /api/consoles/{id}/meters/raw?bank=/meters/1` returns every slot in dBFS so the rest can
+be pinned down on a real desk in a couple of minutes: send signal into one input, see which
+index moves, then extend `CHANNEL_SEGMENT` in
+[`src/metering/meter-banks.ts`](src/metering/meter-banks.ts).
 
 ---
 
@@ -273,6 +318,9 @@ optimistically; the console's own echo confirms them milliseconds later.
 | `CONSOLE_RECONNECT_MAX_MS` | `5000` | Reconnect backoff ceiling — keep it low |
 | `CONSOLE_SYNC_DEPTH` | `full` | `surface` \| `sends` \| `full` |
 | `DISCOVERY_TIMEOUT_MS` | `1500` | How long a discovery sweep listens |
+| `METER_FPS` | `20` | Frames per second pushed to WebSocket clients |
+| `METER_RENEW_MS` | `5000` | Meter subscription renewal (console expiry is 10 000) |
+| `METER_TIME_FACTOR` | `1` | Console-side meter rate divider; 1 ≈ every 50 ms |
 
 `DATABASE_URL` and `JWT_SECRET` arrive with Phases 5 and 7.
 
@@ -289,8 +337,8 @@ readable message instead of misbehaving on stage.
 | 1 | OscModule + emulator + tests | **done** |
 | 2 | ConsoleModule, discovery, reconnect, StateCache | **done** |
 | 3 | MixerModule, REST, Swagger, `npm run openapi:export` | **done** |
-| 4 | Metering + WebSocket at 20 fps | next |
-| 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | pending |
+| 4 | Metering + WebSocket at 20 fps | **done** |
+| 5 | Scenes/snapshots/cues, `.scn` import/export, VenuePreset + fader ramping | next |
 | 6 | RoomEq (REW/CSV import, auto PEQ) | pending |
 | 7 | Auth (JWT, admin/engineer/observer) + Safety (panic, read-only, audit log) | pending |
 

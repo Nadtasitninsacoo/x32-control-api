@@ -158,6 +158,33 @@ export class EnvVars {
   @Max(30000)
   DISCOVERY_TIMEOUT_MS = 1500;
 
+  /* --- Metering --- */
+
+  /**
+   * Frames per second pushed to WebSocket clients. The console can send meters
+   * faster than this; frames are coalesced rather than queued, so a client sees
+   * current meters instead of a backlog.
+   */
+  @Transform(toInt)
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  METER_FPS = 20;
+
+  /** Meter subscription renewal period. The console forgets it after 10s. */
+  @Transform(toInt)
+  @IsInt()
+  @Min(500)
+  @Max(9500)
+  METER_RENEW_MS = 5000;
+
+  /** Console-side meter rate divider; 1 is roughly 50ms per update. */
+  @Transform(toInt)
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  METER_TIME_FACTOR = 1;
+
   /* --- Safety --- */
 
   /** Log state-changing OSC instead of sending it. */

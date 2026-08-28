@@ -414,6 +414,85 @@
         ]
       }
     },
+    "/api/consoles/{consoleId}/meters": {
+      "get": {
+        "description": "A snapshot, for a page that only needs an occasional reading. Anything that draws moving meters should use the WebSocket stream instead — this endpoint returns whatever the stream last produced, and silence if nobody is streaming.",
+        "operationId": "MeteringController_latest",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeterFrameDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No console with this id."
+          }
+        },
+        "summary": "Most recent meter frame",
+        "tags": [
+          "metering"
+        ]
+      }
+    },
+    "/api/consoles/{consoleId}/meters/raw": {
+      "get": {
+        "description": "Every slot of a bank in dBFS. This is the calibration tool for the parts of a bank this project does not map yet: send signal into one input on a real console and see which index moves.",
+        "operationId": "MeteringController_raw",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bank",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "/meters/1",
+                "/meters/13"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RawMeterBankDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "One meter bank, unmapped",
+        "tags": [
+          "metering"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "description": "Cheap enough for a load balancer; useful enough for a wall display.",
@@ -1588,6 +1667,90 @@
             "$ref": "#/components/schemas/UpdateEqDto"
           }
         }
+      },
+      "MainMetersDto": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "type": "number",
+            "example": -12.4,
+            "description": "Main left, dBFS."
+          },
+          "right": {
+            "type": "number",
+            "example": -12.1,
+            "description": "Main right, dBFS."
+          },
+          "mono": {
+            "type": "number",
+            "example": -90,
+            "description": "Main mono, dBFS."
+          }
+        },
+        "required": [
+          "left",
+          "right",
+          "mono"
+        ]
+      },
+      "MeterFrameDto": {
+        "type": "object",
+        "properties": {
+          "consoleId": {
+            "type": "string",
+            "example": "default"
+          },
+          "at": {
+            "type": "number",
+            "example": 1738000000000,
+            "description": "Epoch ms this frame was assembled."
+          },
+          "channels": {
+            "example": [
+              -18.2,
+              -24.6
+            ],
+            "description": "dBFS for input channels 1-32, in order.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "mains": {
+            "$ref": "#/components/schemas/MainMetersDto"
+          }
+        },
+        "required": [
+          "consoleId",
+          "at",
+          "channels",
+          "mains"
+        ]
+      },
+      "RawMeterBankDto": {
+        "type": "object",
+        "properties": {
+          "bank": {
+            "type": "string",
+            "example": "/meters/1"
+          },
+          "count": {
+            "type": "number",
+            "example": 96
+          },
+          "values": {
+            "description": "Every slot in the bank, in dBFS. Use this to identify slots the mapping does not cover yet: feed one input and watch which index moves.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "bank",
+          "count",
+          "values"
+        ]
       },
       "HealthDto": {
         "type": "object",

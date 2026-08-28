@@ -493,6 +493,260 @@
         ]
       }
     },
+    "/api/consoles/{consoleId}/show/current-cue": {
+      "get": {
+        "operationId": "SceneController_currentCue",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Which cue the console is sitting on",
+        "tags": [
+          "scenes"
+        ]
+      }
+    },
+    "/api/consoles/{consoleId}/show/export.scn": {
+      "get": {
+        "description": "A scene file in the console text format. It carries the mixing surface this project models — strips, sends, processing — and not routing, effects or the recorder, so it is a mixing snapshot rather than a full show backup.",
+        "operationId": "SceneController_export",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "Rock Night",
+              "type": "string"
+            }
+          },
+          {
+            "name": "note",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Export the current mixing state as a .scn file",
+        "tags": [
+          "scenes"
+        ]
+      }
+    },
+    "/api/consoles/{consoleId}/show/{kind}": {
+      "get": {
+        "description": "Reads the console show file. Empty slots are omitted.",
+        "operationId": "SceneController_list",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "scene",
+                "cue",
+                "snippet"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShowSlotDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the occupied scene, cue or snippet slots on the console",
+        "tags": [
+          "scenes"
+        ]
+      }
+    },
+    "/api/consoles/{consoleId}/show/{kind}/recall": {
+      "post": {
+        "description": "The console does the recall itself, so it is instant and complete — including the parts this API does not model. The state mirror is re-read afterwards.",
+        "operationId": "SceneController_recall",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "scene",
+                "cue",
+                "snippet"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallSlotDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Recall a scene, cue or snippet",
+        "tags": [
+          "scenes"
+        ]
+      }
+    },
+    "/api/consoles/{consoleId}/show/scene/save": {
+      "post": {
+        "description": "Overwrites whatever is in that slot on the console, so it needs confirm=\"OVERWRITE\". The exact save command is not verified against hardware — prefer a venue preset, which lives in this API and can be rolled back.",
+        "operationId": "SceneController_save",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveSceneDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Missing or wrong confirmation token."
+          }
+        },
+        "summary": "Write the current state into a console scene slot",
+        "tags": [
+          "scenes"
+        ]
+      }
+    },
+    "/api/consoles/{consoleId}/show/import": {
+      "post": {
+        "description": "Without `apply` this only reports what the file contains and what could not be decoded — safe to run during a show. With `apply` and confirm=\"OVERWRITE\" the values are sent to the console, levels ramped so nothing clicks.",
+        "operationId": "SceneController_import",
+        "parameters": [
+          {
+            "name": "consoleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportScnDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReportDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "apply was requested without the confirmation token."
+          }
+        },
+        "summary": "Read a .scn file, and optionally load it",
+        "tags": [
+          "scenes"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "description": "Cheap enough for a load balancer; useful enough for a wall display.",
@@ -1750,6 +2004,235 @@
           "bank",
           "count",
           "values"
+        ]
+      },
+      "ShowSlotDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "example": 3
+          },
+          "name": {
+            "type": "string",
+            "example": "Rock Night"
+          },
+          "note": {
+            "type": "string",
+            "example": "FOH base, no support act"
+          }
+        },
+        "required": [
+          "index",
+          "name"
+        ]
+      },
+      "RecallSlotDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "example": 3,
+            "minimum": 0,
+            "maximum": 99
+          }
+        },
+        "required": [
+          "index"
+        ]
+      },
+      "SaveSceneDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "example": 3,
+            "minimum": 0,
+            "maximum": 99
+          },
+          "name": {
+            "type": "string",
+            "example": "Rock Night"
+          },
+          "note": {
+            "type": "string",
+            "example": "After soundcheck"
+          },
+          "confirm": {
+            "type": "string",
+            "example": "OVERWRITE",
+            "description": "Must be \"OVERWRITE\". Saving replaces whatever is in that slot."
+          }
+        },
+        "required": [
+          "index",
+          "name",
+          "confirm"
+        ]
+      },
+      "ImportScnDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The contents of a .scn file."
+          },
+          "apply": {
+            "type": "boolean",
+            "example": false,
+            "description": "Send it to the console. Without this the request only reports what it would do."
+          },
+          "rampMs": {
+            "type": "number",
+            "example": 400,
+            "description": "Ramp time for level changes, in ms."
+          },
+          "confirm": {
+            "type": "string",
+            "example": "OVERWRITE",
+            "description": "Required when apply is true."
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "ValueChangeDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "example": "/ch/01/mix/fader"
+          },
+          "from": {
+            "type": "object",
+            "example": -90
+          },
+          "to": {
+            "type": "object",
+            "example": -6
+          },
+          "ramped": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether this value was ramped rather than jumped."
+          }
+        },
+        "required": [
+          "address",
+          "to",
+          "ramped"
+        ]
+      },
+      "ApplyReportDto": {
+        "type": "object",
+        "properties": {
+          "requested": {
+            "type": "number",
+            "example": 812
+          },
+          "changed": {
+            "type": "number",
+            "example": 37,
+            "description": "Values that actually differed and were sent."
+          },
+          "unchanged": {
+            "type": "number",
+            "example": 775,
+            "description": "Values the console already had."
+          },
+          "unknown": {
+            "example": [],
+            "description": "Addresses with no schema.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rampedFaders": {
+            "type": "number",
+            "example": 12
+          },
+          "stepsPerFader": {
+            "type": "number",
+            "example": 8
+          },
+          "messages": {
+            "type": "number",
+            "example": 133,
+            "description": "Datagrams sent."
+          },
+          "durationMs": {
+            "type": "number",
+            "example": 412
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValueChangeDto"
+            }
+          }
+        },
+        "required": [
+          "requested",
+          "changed",
+          "unchanged",
+          "unknown",
+          "rampedFaders",
+          "stepsPerFader",
+          "messages",
+          "durationMs",
+          "changes"
+        ]
+      },
+      "ImportReportDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Rock Night"
+          },
+          "note": {
+            "type": "string",
+            "example": "FOH base"
+          },
+          "version": {
+            "type": "string",
+            "example": "2.7"
+          },
+          "parsedValues": {
+            "type": "number",
+            "example": 812
+          },
+          "unknownLines": {
+            "type": "number",
+            "example": 40,
+            "description": "Lines this project has no schema for — routing, effects, and the like."
+          },
+          "rejectedLines": {
+            "example": [],
+            "description": "Lines whose value count disagreed with the schema. These are never decoded by position, because every value after a mismatch would land on the wrong parameter.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "applied": {
+            "type": "boolean",
+            "example": false
+          },
+          "apply": {
+            "$ref": "#/components/schemas/ApplyReportDto"
+          }
+        },
+        "required": [
+          "name",
+          "note",
+          "version",
+          "parsedValues",
+          "unknownLines",
+          "rejectedLines",
+          "applied"
         ]
       },
       "HealthDto": {

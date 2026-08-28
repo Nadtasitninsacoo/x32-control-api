@@ -185,6 +185,31 @@ export class EnvVars {
   @Max(99)
   METER_TIME_FACTOR = 1;
 
+  /* --- Applying presets and scenes --- */
+
+  /**
+   * Default ramp time for level changes. A fader that jumps clicks; the
+   * 300-800ms window is where a move sounds deliberate rather than either
+   * abrupt or sluggish.
+   */
+  @Transform(toInt)
+  @IsInt()
+  @Min(0)
+  @Max(5000)
+  RAMP_DEFAULT_MS = 400;
+
+  @Transform(toInt)
+  @IsInt()
+  @Min(0)
+  @Max(5000)
+  RAMP_MIN_MS = 300;
+
+  @Transform(toInt)
+  @IsInt()
+  @Min(0)
+  @Max(10000)
+  RAMP_MAX_MS = 800;
+
   /* --- Safety --- */
 
   /** Log state-changing OSC instead of sending it. */

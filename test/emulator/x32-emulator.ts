@@ -6,6 +6,7 @@ import {
 import {
   OscArg,
   OscMessage,
+  argAsNumber,
   argAsString,
   oscFloat,
   oscInt,
@@ -120,6 +121,8 @@ export class X32Emulator {
   private boundPort = 0;
 
   private readonly state = new Map<string, OscArg[]>();
+  /** Saved scenes: the console's show file, as far as this emulator models it. */
+  private readonly scenes = new Map<number, Map<string, OscArg[]>>();
   private readonly xremote = new Map<string, Subscriber>();
   private readonly meterSubs = new Map<string, MeterSubscriber>();
   private meterTimer: NodeJS.Timeout | undefined;
@@ -257,6 +260,34 @@ export class X32Emulator {
           ],
         });
         return;
+
+      case '/save': {
+        // /save ,s "scene" ,i index ,s name ,s note
+        const what = argAsString(args[0]);
+        const index = argAsNumber(args[1]);
+        if (what !== 'scene' || index === undefined) return;
+        this.saveScene(
+          index,
+          argAsString(args[2]) ?? '',
+          argAsString(args[3]) ?? '',
+        );
+        return;
+      }
+
+      case '/-action/goscene': {
+        const index = argAsNumber(args[0]);
+        if (index !== undefined) this.recallScene(index);
+        return;
+      }
+
+      case '/-action/gocue':
+      case '/-action/gosnippet': {
+        const index = argAsNumber(args[0]);
+        if (index !== undefined) {
+          this.state.set('/-show/prepos/current', [oscInt(index)]);
+        }
+        return;
+      }
 
       case '/status':
         this.reply(from, {
@@ -454,6 +485,34 @@ export class X32Emulator {
     return Math.abs(x % 10_000) / 10_000;
   }
 
+  /* ------------------------------- show file ------------------------------ */
+
+  /** Snapshots every parameter into a scene slot, as the console would. */
+  private saveScene(index: number, name: string, note: string): void {
+    const snapshot = new Map<string, OscArg[]>();
+    for (const [address, args] of this.state) {
+      if (address.startsWith('/-show/')) continue;
+      snapshot.set(address, [...args]);
+    }
+    this.scenes.set(index, snapshot);
+    const slot = `/-show/showfile/scene/${String(index).padStart(3, '0')}`;
+    this.state.set(`${slot}/name`, [oscString(name)]);
+    this.state.set(`${slot}/notes`, [oscString(note)]);
+  }
+
+  /** Restores a scene and pushes every changed value to the feed. */
+  private recallScene(index: number): void {
+    const snapshot = this.scenes.get(index);
+    this.state.set('/-show/prepos/current', [oscInt(index)]);
+    if (!snapshot) return;
+
+    for (const [address, args] of snapshot) {
+      const current = this.state.get(address);
+      this.state.set(address, [...args]);
+      if (!current || !sameArgs(current, args)) this.publish({ address, args });
+    }
+  }
+
   /* --------------------------- /node formatting --------------------------- */
 
   private formatNode(rawPath: string): string {
@@ -527,6 +586,17 @@ export class X32Emulator {
       set(`${headampRoot(input)}/phantom`, [oscInt(0)]);
     }
 
+    // Show file slots. A real console answers with an empty name for a slot
+    // that has never been used, rather than staying silent.
+    for (const kind of ['scene', 'cue', 'snippet'] as const) {
+      for (let index = 0; index < 100; index += 1) {
+        const slot = `/-show/showfile/${kind}/${String(index).padStart(3, '0')}`;
+        set(`${slot}/name`, [oscString('')]);
+        if (kind === 'scene') set(`${slot}/notes`, [oscString('')]);
+      }
+    }
+    set('/-show/prepos/current', [oscInt(0)]);
+
     set('/config/mute/1', [oscInt(0)]);
     set('/-stat/xremotenfb', [oscInt(0)]);
   }
@@ -585,4 +655,15 @@ export class X32Emulator {
       }
     }
   }
+}
+
+function sameArgs(a: readonly OscArg[], b: readonly OscArg[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((arg, i) => {
+    const other = b[i];
+    if (arg.type !== other.type) return false;
+    if (arg.type === 'b' && other.type === 'b')
+      return arg.value.equals(other.value);
+    return arg.value === other.value;
+  });
 }

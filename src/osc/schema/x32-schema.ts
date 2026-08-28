@@ -58,6 +58,11 @@ export interface ParamDef {
   readonly values?: readonly string[];
   readonly unit?: 'dB' | 'Hz' | 'ms' | '%' | 'Q';
   readonly decimals?: number;
+  /**
+   * Printed with an explicit `+` when positive, the way the console prints
+   * parameters that run either side of zero (`+0.0`, `-4.5`).
+   */
+  readonly signed?: boolean;
 }
 
 /** Value as the API and the frontend see it. */
@@ -85,7 +90,16 @@ const p = {
     taper: LinearTaper,
     unit: ParamDef['unit'],
     decimals = 1,
-  ): ParamDef => ({ name, kind: 'linear', osc: 'f', taper, unit, decimals }),
+    signed = false,
+  ): ParamDef => ({
+    name,
+    kind: 'linear',
+    osc: 'f',
+    taper,
+    unit,
+    decimals,
+    signed,
+  }),
   log: (
     name: string,
     taper: LinearTaper,
@@ -140,7 +154,7 @@ const MIX: ContainerDef = {
     p.bool('on'),
     p.level('fader'),
     p.bool('st'),
-    p.linear('pan', TAPERS.pan, '%', 0),
+    p.linear('pan', TAPERS.pan, '%', 0, true),
     p.bool('mono'),
     p.level('mlevel'),
   ],
@@ -156,7 +170,7 @@ const BUS_SEND: ContainerDef = {
 
 const PREAMP: ContainerDef = {
   children: [
-    p.linear('trim', TRIM_TAPER, 'dB'),
+    p.linear('trim', TRIM_TAPER, 'dB', 1, true),
     p.bool('invert'),
     p.bool('hpon'),
     p.log('hpf', TAPERS.lowCutFreq, 'Hz', 0),
@@ -185,7 +199,7 @@ const DYN: ContainerDef = {
     p.linear('thr', TAPERS.compThreshold, 'dB'),
     p.ratio('ratio'),
     p.linear('knee', TAPERS.compKnee, undefined, 1),
-    p.linear('mgain', TAPERS.compMakeupGain, 'dB'),
+    p.linear('mgain', TAPERS.compMakeupGain, 'dB', 1, true),
     p.linear('attack', TAPERS.attackMs, 'ms', 0),
     p.log('hold', TAPERS.holdMs, 'ms', 2),
     p.log('release', TAPERS.releaseMs, 'ms', 0),
@@ -201,7 +215,7 @@ const EQ_BAND: ContainerDef = {
   children: [
     p.enum('type', EQ_TYPES),
     p.log('f', TAPERS.eqFreq, 'Hz', 1),
-    p.linear('g', TAPERS.eqGain, 'dB'),
+    p.linear('g', TAPERS.eqGain, 'dB', 1, true),
     p.log('q', TAPERS.eqQ, 'Q', 2),
   ],
 };
@@ -209,7 +223,10 @@ const EQ_BAND: ContainerDef = {
 const DCA: ContainerDef = { children: [p.bool('on'), p.level('fader')] };
 
 const HEADAMP: ContainerDef = {
-  children: [p.linear('gain', TAPERS.headampGain, 'dB'), p.bool('phantom')],
+  children: [
+    p.linear('gain', TAPERS.headampGain, 'dB', 1, true),
+    p.bool('phantom'),
+  ],
 };
 
 /**
@@ -368,8 +385,7 @@ export function formatNodeToken(def: ParamDef, arg: OscArg): string {
     default: {
       const decimals = def.decimals ?? 1;
       const text = Number(human).toFixed(decimals);
-      // The console prints signed dB values with an explicit plus.
-      return def.unit === 'dB' && Number(human) >= 0 ? `+${text}` : text;
+      return def.signed && Number(human) >= 0 ? `+${text}` : text;
     }
   }
 }
